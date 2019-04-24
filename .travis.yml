@@ -1,0 +1,45 @@
+language: rust
+os:
+  - linux
+  - osx
+  - windows
+rust:
+  - stable
+  - beta
+  - nightly
+env:
+  global:
+    - RUSTFLAGS='-F warnings'
+    - RUST_BACKTRACE=full
+matrix:
+  exclude:
+    - os: osx
+      rust: beta
+    - os: osx
+      rust: nightly
+    - os: windows
+      rust: beta
+    - os: windows
+      rust: nightly
+  allow_failures:
+    - rust: beta
+    - rust: nightly
+  fast_finish: true
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+stages:
+  - Check
+  - Test
+jobs:
+  include:
+    - stage: Check
+      name: Format
+      script:
+        - rustup component add rustfmt
+        - cargo fmt --all -- --check
+    - stage: Check
+      name: Clippy
+      script:
+        - rustup component add clippy
+        - cargo clippy --all --all-targets --all-features
