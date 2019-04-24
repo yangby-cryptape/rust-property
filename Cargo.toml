@@ -1,0 +1,19 @@
+[package]
+name = "property"
+version = "0.1.0"
+authors = ["Boyu Yang <yangby@cryptape.com>"]
+edition = "2018"
+description = "Generate several common methods for structs automatically."
+homepage = "https://github.com/yangby-cryptape/rust-property"
+repository = "https://github.com/yangby-cryptape/rust-property"
+keywords = ["getter", "setter", "accessor", "mutator"]
+categories = ["development-tools"]
+license = "Apache-2.0 OR MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "~0.15"
+quote = "~0.6"
+proc-macro2 = "~0.4"
