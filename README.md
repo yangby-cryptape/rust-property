@@ -2,11 +2,15 @@
 
 [![License]](#license)
 [![Travis CI]](https://travis-ci.com/yangby-cryptape/rust-property)
+[![Crate Badge]](https://crates.io/crates/property)
+[![Crate Doc]](https://docs.rs/property)
 
 Generate several common methods for structs automatically.
 
 [License]: https://img.shields.io/badge/License-Apache--2.0%20OR%20MIT-blue.svg
 [Travis CI]: https://img.shields.io/travis/com/yangby-cryptape/rust-property.svg
+[Crate Badge]: https://img.shields.io/crates/v/property.svg
+[Crate Doc]: https://docs.rs/property/badge.svg
 
 ## Usage
 
