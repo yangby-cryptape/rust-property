@@ -35,7 +35,7 @@ pub(crate) enum GetTypeConf {
 }
 
 #[derive(Clone)]
-pub(crate) enum FieldVisConf {
+pub(crate) enum VisibilityConf {
     Disable,
     Public,
     Crate,
@@ -44,15 +44,15 @@ pub(crate) enum FieldVisConf {
 
 #[derive(Clone)]
 pub(crate) struct GetFieldConf {
-    pub(crate) vis: FieldVisConf,
+    pub(crate) vis: VisibilityConf,
     pub(crate) typ: GetTypeConf,
 }
 
 #[derive(Clone)]
 pub(crate) struct FieldConf {
     pub(crate) get: GetFieldConf,
-    pub(crate) set: FieldVisConf,
-    pub(crate) mut_: FieldVisConf,
+    pub(crate) set: VisibilityConf,
+    pub(crate) mut_: VisibilityConf,
 }
 
 impl syn::parse::Parse for PropertyDef {
@@ -134,17 +134,17 @@ impl GetTypeConf {
     }
 }
 
-impl FieldVisConf {
+impl VisibilityConf {
     pub(crate) fn parse_from_input(
         input: Option<&str>,
         span: proc_macro2::Span,
     ) -> ParseResult<Option<Self>> {
         let choice = match input {
             None => None,
-            Some("disable") => Some(FieldVisConf::Disable),
-            Some("public") => Some(FieldVisConf::Public),
-            Some("crate") => Some(FieldVisConf::Crate),
-            Some("private") => Some(FieldVisConf::Private),
+            Some("disable") => Some(VisibilityConf::Disable),
+            Some("public") => Some(VisibilityConf::Public),
+            Some("crate") => Some(VisibilityConf::Crate),
+            Some("private") => Some(VisibilityConf::Private),
             _ => Err(SynError::new(span, "unreachable result"))?,
         };
         Ok(choice)
@@ -152,10 +152,10 @@ impl FieldVisConf {
 
     pub(crate) fn to_visibility(&self) -> Option<proc_macro2::TokenStream> {
         match self {
-            FieldVisConf::Disable => None,
-            FieldVisConf::Public => Some(quote!(pub)),
-            FieldVisConf::Crate => Some(quote!(pub(crate))),
-            FieldVisConf::Private => Some(quote!()),
+            VisibilityConf::Disable => None,
+            VisibilityConf::Public => Some(quote!(pub)),
+            VisibilityConf::Crate => Some(quote!(pub(crate))),
+            VisibilityConf::Private => Some(quote!()),
         }
     }
 }
@@ -164,11 +164,11 @@ impl ::std::default::Default for FieldConf {
     fn default() -> Self {
         Self {
             get: GetFieldConf {
-                vis: FieldVisConf::Crate,
+                vis: VisibilityConf::Crate,
                 typ: GetTypeConf::NotSet,
             },
-            set: FieldVisConf::Crate,
-            mut_: FieldVisConf::Crate,
+            set: VisibilityConf::Crate,
+            mut_: VisibilityConf::Crate,
         }
     }
 }
@@ -239,7 +239,7 @@ impl FieldConf {
                         let namevalues =
                             check_namevalue_params(&namevalue_params, &[GET_TYPE_OPTIONS])?;
                         if let Some(choice) =
-                            FieldVisConf::parse_from_input(words[0], list.ident.span())?
+                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
                             self.get.vis = choice;
                         }
@@ -253,7 +253,7 @@ impl FieldConf {
                         let _ = check_namevalue_params(&namevalue_params, &[])?;
                         let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
                         if let Some(choice) =
-                            FieldVisConf::parse_from_input(words[0], list.ident.span())?
+                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
                             self.set = choice;
                         }
@@ -262,7 +262,7 @@ impl FieldConf {
                         let _ = check_namevalue_params(&namevalue_params, &[])?;
                         let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
                         if let Some(choice) =
-                            FieldVisConf::parse_from_input(words[0], list.ident.span())?
+                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
                             self.mut_ = choice;
                         }
