@@ -14,17 +14,29 @@ Generate several common methods for structs automatically.
 
 ## Usage
 
-Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
+- Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
 
-Set container attributes can change the default settings for all fields.
+  There are three kinds of configurable attributes: `get`, `set`, `mut`.
 
-The default settings for all fields are: `#[property(get(crate), set(crate), mut(crate))]`.
+- Set container attributes can change the default settings for all fields.
 
-Change the settings of a single field via setting field attributes.
+- Change the settings of a single field via setting field attributes.
 
-There are three kinds of methods: `get` (`is` for Boolean), `set`, `mut`.
+- The visibility of a method can be set via `#[property(get(visibility-type))]`
 
-The return type of `get` method can be set via `#[property(get(type = "return-type"))]`, there are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
+  There are four kinds of the visibility type: `disable`, `public`, `crate` (default for all methods), and `private`.
+
+- The method name can be set in two ways:
+
+  1. Assign a complete name via `#[property(get(name = "method-name"))]`.
+
+  2. Set `prefix` and / or `suffix` via `#[property(set(prefix = "set_"), mut(suffix = "mut_"))]`.
+
+  The default setting for all fields is: `#[property(get(prefix = "get_"), set(prefix = "set_"), mut(prefix = "mut_"))]`.
+
+- The return type of `get` method can be set via `#[property(get(type = "return-type"))]`.
+
+  There are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
 
 ## In Action
 
@@ -51,6 +63,7 @@ pub struct Pet {
     age: u32,
     #[property(get(type = "copy"))]
     species: Species,
+    #[property(get(prefix = "is_"))]
     died: bool,
     #[property(get(type = "clone"))]
     owner: String,

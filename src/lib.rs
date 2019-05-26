@@ -48,10 +48,7 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
     let field_conf = &field.conf;
     let prop_field_type = FieldType::from_type(field_type);
     if let Some(ts) = field_conf.get.vis.to_ts().and_then(|visibility| {
-        let method_name = match prop_field_type {
-            FieldType::Boolean => generate_method_by_name("is_", field_name),
-            _ => generate_method_by_name("get_", field_name),
-        };
+        let method_name = field_conf.get.name.complete(field_name);
         let get_type = match field_conf.get.typ {
             GetTypeConf::NotSet => GetType::from_field_type(&prop_field_type),
             GetTypeConf::Ref => GetType::Ref,
@@ -95,7 +92,7 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
         property.push(ts);
     }
     if let Some(ts) = field_conf.set.vis.to_ts().and_then(|visibility| {
-        let method_name = generate_method_by_name("set_", field_name);
+        let method_name = field_conf.set.name.complete(field_name);
         let generated = quote!(
             #visibility fn #method_name(&mut self, val: #field_type) -> &mut Self {
                 self.#field_name = val;
@@ -107,7 +104,7 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
         property.push(ts);
     }
     if let Some(ts) = field_conf.mut_.vis.to_ts().and_then(|visibility| {
-        let method_name = generate_method_by_name("mut_", field_name);
+        let method_name = field_conf.mut_.name.complete(field_name);
         let generated = quote!(
             #visibility fn #method_name(&mut self) -> &mut #field_type {
                 &mut self.#field_name
@@ -118,9 +115,4 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
         property.push(ts);
     }
     property
-}
-
-fn generate_method_by_name(prefix: &str, field_name: &syn::Ident) -> syn::Ident {
-    let method_name = format!("{}{}", prefix, field_name.to_string());
-    syn::Ident::new(&method_name, field_name.span())
 }
