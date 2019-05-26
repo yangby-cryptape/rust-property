@@ -43,3 +43,10 @@ jobs:
       script:
         - rustup component add clippy
         - cargo clippy --all --all-targets --all-features
+    - stage: Check
+      name: Expand
+      script:
+        - rustup component add rustfmt
+        - cargo install cargo-expand
+        - rustup install nightly
+        - .ci-scripts/test-expand
