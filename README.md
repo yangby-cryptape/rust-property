@@ -20,7 +20,7 @@ Set container attributes can change the default settings for all fields.
 
 Change the settings of a single field via setting field attributes.
 
-There are three kinds of methods: `get` (`is` for Boolean), `set`, `get_mut`.
+There are three kinds of methods: `get` (`is` for Boolean), `set`, `mut`.
 
 The return type of `get` method can be set via `get_type`, there are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
 
@@ -40,7 +40,7 @@ pub enum Species {
 }
 
 #[derive(Property)]
-#[property(get(public), set(private), get_mut(disable))]
+#[property(get(public), set(private), mut(disable))]
 pub struct Pet {
     #[property(set(disable))]
     id: [u8; 32],
@@ -55,7 +55,7 @@ pub struct Pet {
     family_members: Vec<String>,
     #[property(get_type(ref))]
     info: String,
-    #[property(get_mut(public))]
+    #[property(mut(public))]
     note: Option<String>,
 }
 ```
@@ -141,7 +141,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_mut_note(&mut self) -> &mut Option<String> {
+    pub fn mut_note(&mut self) -> &mut Option<String> {
         &mut self.note
     }
 }

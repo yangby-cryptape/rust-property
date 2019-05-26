@@ -43,7 +43,7 @@ pub(crate) enum FieldVisConf {
 pub(crate) struct FieldConf {
     pub(crate) get: FieldVisConf,
     pub(crate) set: FieldVisConf,
-    pub(crate) get_mut: FieldVisConf,
+    pub(crate) mut_: FieldVisConf,
     pub(crate) get_type: GetTypeConf,
 }
 
@@ -159,7 +159,7 @@ impl ::std::default::Default for FieldConf {
         Self {
             get: FieldVisConf::Crate,
             set: FieldVisConf::Crate,
-            get_mut: FieldVisConf::Crate,
+            mut_: FieldVisConf::Crate,
             get_type: GetTypeConf::NotSet,
         }
     }
@@ -223,11 +223,11 @@ impl FieldConf {
                             self.set = choice;
                         }
                     }
-                    "get_mut" => {
+                    "mut" => {
                         if let Some(choice) =
                             FieldVisConf::parse_from_input(&params, list.ident.span())?
                         {
-                            self.get_mut = choice;
+                            self.mut_ = choice;
                         }
                     }
                     "get_type" => {

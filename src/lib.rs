@@ -106,8 +106,8 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
     }) {
         property.push(ts);
     }
-    if let Some(ts) = field_conf.get_mut.to_visibility().and_then(|visibility| {
-        let method_name = generate_method_by_name("get_mut_", field_name);
+    if let Some(ts) = field_conf.mut_.to_visibility().and_then(|visibility| {
+        let method_name = generate_method_by_name("mut_", field_name);
         let generated = quote!(
             #visibility fn #method_name(&mut self) -> &mut #field_type {
                 &mut self.#field_name
