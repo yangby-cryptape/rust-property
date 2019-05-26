@@ -243,7 +243,7 @@ impl ::std::default::Default for FieldConf {
                 vis: VisibilityConf::Crate,
                 typ: GetTypeConf::NotSet,
                 name: MethodNameConf::Format {
-                    prefix: "get_".to_owned(),
+                    prefix: "".to_owned(),
                     suffix: "".to_owned(),
                 },
             },

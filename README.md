@@ -32,7 +32,7 @@ Generate several common methods for structs automatically.
 
   2. Set `prefix` and / or `suffix` via `#[property(set(prefix = "set_"), mut(suffix = "mut_"))]`.
 
-  The default setting for all fields is: `#[property(get(prefix = "get_"), set(prefix = "set_"), mut(prefix = "mut_"))]`.
+  The default setting for all fields is: `#[property(get(prefix = "", suffix = ""), set(prefix = "set_"), mut(prefix = "mut_"))]`.
 
 - The return type of `get` method can be set via `#[property(get(type = "return-type"))]`.
 
@@ -56,7 +56,7 @@ pub enum Species {
 #[derive(Property)]
 #[property(get(public), set(private), mut(disable))]
 pub struct Pet {
-    #[property(set(disable))]
+    #[property(get(name = "identification"), set(disable))]
     id: [u8; 32],
     name: String,
     #[property(set(crate))]
@@ -68,9 +68,9 @@ pub struct Pet {
     #[property(get(type = "clone"))]
     owner: String,
     family_members: Vec<String>,
-    #[property(get(type = "ref"))]
+    #[property(get(type = "ref"), mut(crate))]
     info: String,
-    #[property(mut(public))]
+    #[property(mut(public, suffix = "_mut"))]
     note: Option<String>,
 }
 ```
@@ -80,11 +80,11 @@ pub struct Pet {
 ```rust
 impl Pet {
     #[inline(always)]
-    pub fn get_id(&self) -> &[u8] {
+    pub fn identification(&self) -> &[u8] {
         &self.id[..]
     }
     #[inline(always)]
-    pub fn get_name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name[..]
     }
     #[inline(always)]
@@ -93,7 +93,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_age(&self) -> u32 {
+    pub fn age(&self) -> u32 {
         self.age
     }
     #[inline(always)]
@@ -102,7 +102,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_species(&self) -> Species {
+    pub fn species(&self) -> Species {
         self.species
     }
     #[inline(always)]
@@ -120,7 +120,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_owner(&self) -> String {
+    pub fn owner(&self) -> String {
         self.owner.clone()
     }
     #[inline(always)]
@@ -129,7 +129,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_family_members(&self) -> &[String] {
+    pub fn family_members(&self) -> &[String] {
         &self.family_members[..]
     }
     #[inline(always)]
@@ -138,7 +138,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_info(&self) -> &String {
+    pub fn info(&self) -> &String {
         &self.info
     }
     #[inline(always)]
@@ -147,7 +147,11 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_note(&self) -> Option<&String> {
+    pub(crate) fn mut_info(&mut self) -> &mut String {
+        &mut self.info
+    }
+    #[inline(always)]
+    pub fn note(&self) -> Option<&String> {
         self.note.as_ref()
     }
     #[inline(always)]
@@ -156,7 +160,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn mut_note(&mut self) -> &mut Option<String> {
+    pub fn note_mut(&mut self) -> &mut Option<String> {
         &mut self.note
     }
 }
