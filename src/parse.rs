@@ -49,10 +49,20 @@ pub(crate) struct GetFieldConf {
 }
 
 #[derive(Clone)]
+pub(crate) struct SetFieldConf {
+    pub(crate) vis: VisibilityConf,
+}
+
+#[derive(Clone)]
+pub(crate) struct MutFieldConf {
+    pub(crate) vis: VisibilityConf,
+}
+
+#[derive(Clone)]
 pub(crate) struct FieldConf {
     pub(crate) get: GetFieldConf,
-    pub(crate) set: VisibilityConf,
-    pub(crate) mut_: VisibilityConf,
+    pub(crate) set: SetFieldConf,
+    pub(crate) mut_: MutFieldConf,
 }
 
 impl syn::parse::Parse for PropertyDef {
@@ -150,7 +160,7 @@ impl VisibilityConf {
         Ok(choice)
     }
 
-    pub(crate) fn to_visibility(&self) -> Option<proc_macro2::TokenStream> {
+    pub(crate) fn to_ts(&self) -> Option<proc_macro2::TokenStream> {
         match self {
             VisibilityConf::Disable => None,
             VisibilityConf::Public => Some(quote!(pub)),
@@ -167,8 +177,12 @@ impl ::std::default::Default for FieldConf {
                 vis: VisibilityConf::Crate,
                 typ: GetTypeConf::NotSet,
             },
-            set: VisibilityConf::Crate,
-            mut_: VisibilityConf::Crate,
+            set: SetFieldConf {
+                vis: VisibilityConf::Crate,
+            },
+            mut_: MutFieldConf {
+                vis: VisibilityConf::Crate,
+            },
         }
     }
 }
@@ -255,7 +269,7 @@ impl FieldConf {
                         if let Some(choice) =
                             VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
-                            self.set = choice;
+                            self.set.vis = choice;
                         }
                     }
                     "mut" => {
@@ -264,7 +278,7 @@ impl FieldConf {
                         if let Some(choice) =
                             VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
-                            self.mut_ = choice;
+                            self.mut_.vis = choice;
                         }
                     }
                     _ => {
