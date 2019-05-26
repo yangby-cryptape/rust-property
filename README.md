@@ -18,11 +18,13 @@ Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[propert
 
 Set container attributes can change the default settings for all fields.
 
+The default settings for all fields are: `#[property(get(crate), set(crate), mut(crate))]`.
+
 Change the settings of a single field via setting field attributes.
 
 There are three kinds of methods: `get` (`is` for Boolean), `set`, `mut`.
 
-The return type of `get` method can be set via `get_type`, there are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
+The return type of `get` method can be set via `#[property(get(type = "return-type"))]`, there are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
 
 ## In Action
 
@@ -47,13 +49,13 @@ pub struct Pet {
     name: String,
     #[property(set(crate))]
     age: u32,
-    #[property(get_type(copy))]
+    #[property(get(type = "copy"))]
     species: Species,
     died: bool,
-    #[property(get_type(clone))]
+    #[property(get(type = "clone"))]
     owner: String,
     family_members: Vec<String>,
-    #[property(get_type(ref))]
+    #[property(get(type = "ref"))]
     info: String,
     #[property(mut(public))]
     note: Option<String>,
