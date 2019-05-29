@@ -11,6 +11,12 @@ use syn::{parse::Result as ParseResult, spanned::Spanned, Error as SynError};
 
 const ATTR_NAME: &str = "property";
 
+const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "copy", "clone"]));
+const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
+const PREFIX_OPTION: (&str, Option<&[&str]>) = ("prefix", None);
+const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
+const VISIBILITY_OPTIONS: &[&str] = &["disable", "public", "crate", "private"];
+
 pub(crate) struct PropertyDef {
     pub(crate) name: syn::Ident,
     pub(crate) generics: syn::Generics,
@@ -32,7 +38,7 @@ pub(crate) enum GetTypeConf {
 }
 
 #[derive(Clone)]
-pub(crate) enum FieldVisConf {
+pub(crate) enum VisibilityConf {
     Disable,
     Public,
     Crate,
@@ -40,11 +46,35 @@ pub(crate) enum FieldVisConf {
 }
 
 #[derive(Clone)]
+pub(crate) enum MethodNameConf {
+    Name(String),
+    Format { prefix: String, suffix: String },
+}
+
+#[derive(Clone)]
+pub(crate) struct GetFieldConf {
+    pub(crate) vis: VisibilityConf,
+    pub(crate) name: MethodNameConf,
+    pub(crate) typ: GetTypeConf,
+}
+
+#[derive(Clone)]
+pub(crate) struct SetFieldConf {
+    pub(crate) vis: VisibilityConf,
+    pub(crate) name: MethodNameConf,
+}
+
+#[derive(Clone)]
+pub(crate) struct MutFieldConf {
+    pub(crate) vis: VisibilityConf,
+    pub(crate) name: MethodNameConf,
+}
+
+#[derive(Clone)]
 pub(crate) struct FieldConf {
-    pub(crate) get: FieldVisConf,
-    pub(crate) set: FieldVisConf,
-    pub(crate) get_mut: FieldVisConf,
-    pub(crate) get_type: GetTypeConf,
+    pub(crate) get: GetFieldConf,
+    pub(crate) set: SetFieldConf,
+    pub(crate) mut_: MutFieldConf,
 }
 
 impl syn::parse::Parse for PropertyDef {
@@ -112,55 +142,125 @@ impl FieldDef {
 
 impl GetTypeConf {
     pub(crate) fn parse_from_input(
-        params: &::std::collections::HashSet<&syn::Ident>,
+        namevalue_params: &::std::collections::HashMap<&str, String>,
         span: proc_macro2::Span,
     ) -> ParseResult<Option<Self>> {
-        let result = check_params(params, &[&["copy", "clone", "ref"]])?;
-        let choice = match result[0] {
+        let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
             None => None,
-            Some("clone") => Some(GetTypeConf::Clone_),
-            Some("copy") => Some(GetTypeConf::Copy_),
             Some("ref") => Some(GetTypeConf::Ref),
+            Some("copy") => Some(GetTypeConf::Copy_),
+            Some("clone") => Some(GetTypeConf::Clone_),
             _ => Err(SynError::new(span, "unreachable result"))?,
         };
         Ok(choice)
     }
 }
 
-impl FieldVisConf {
+impl VisibilityConf {
     pub(crate) fn parse_from_input(
-        params: &::std::collections::HashSet<&syn::Ident>,
+        input: Option<&str>,
         span: proc_macro2::Span,
     ) -> ParseResult<Option<Self>> {
-        let result = check_params(params, &[&["disable", "public", "crate", "private"]])?;
-        let choice = match result[0] {
+        let choice = match input {
             None => None,
-            Some("disable") => Some(FieldVisConf::Disable),
-            Some("public") => Some(FieldVisConf::Public),
-            Some("crate") => Some(FieldVisConf::Crate),
-            Some("private") => Some(FieldVisConf::Private),
+            Some("disable") => Some(VisibilityConf::Disable),
+            Some("public") => Some(VisibilityConf::Public),
+            Some("crate") => Some(VisibilityConf::Crate),
+            Some("private") => Some(VisibilityConf::Private),
             _ => Err(SynError::new(span, "unreachable result"))?,
         };
         Ok(choice)
     }
 
-    pub(crate) fn to_visibility(&self) -> Option<proc_macro2::TokenStream> {
+    pub(crate) fn to_ts(&self) -> Option<proc_macro2::TokenStream> {
         match self {
-            FieldVisConf::Disable => None,
-            FieldVisConf::Public => Some(quote!(pub)),
-            FieldVisConf::Crate => Some(quote!(pub(crate))),
-            FieldVisConf::Private => Some(quote!()),
+            VisibilityConf::Disable => None,
+            VisibilityConf::Public => Some(quote!(pub)),
+            VisibilityConf::Crate => Some(quote!(pub(crate))),
+            VisibilityConf::Private => Some(quote!()),
         }
+    }
+}
+
+impl MethodNameConf {
+    pub(crate) fn parse_from_input(
+        namevalue_params: &::std::collections::HashMap<&str, String>,
+        span: proc_macro2::Span,
+    ) -> ParseResult<Option<Self>> {
+        let name_opt = match namevalue_params.get("name") {
+            None => None,
+            Some(input) => Some(input.to_owned()),
+        };
+        let prefix_opt = match namevalue_params.get("prefix") {
+            None => None,
+            Some(input) => Some(input.to_owned()),
+        };
+        let suffix_opt = match namevalue_params.get("suffix") {
+            None => None,
+            Some(input) => Some(input.to_owned()),
+        };
+        if let Some(name) = name_opt {
+            if prefix_opt.is_some() || suffix_opt.is_some() {
+                Err(SynError::new(
+                    span,
+                    "do not set prefix or suffix if name was set",
+                ))
+            } else {
+                Ok(Some(MethodNameConf::Name(name)))
+            }
+        } else {
+            let choice = match (prefix_opt, suffix_opt) {
+                (Some(prefix), Some(suffix)) => Some(MethodNameConf::Format { prefix, suffix }),
+                (Some(prefix), None) => Some(MethodNameConf::Format {
+                    prefix,
+                    suffix: "".to_owned(),
+                }),
+                (None, Some(suffix)) => Some(MethodNameConf::Format {
+                    prefix: "".to_owned(),
+                    suffix,
+                }),
+                (None, None) => None,
+            };
+            Ok(choice)
+        }
+    }
+
+    pub(crate) fn complete(&self, field_name: &syn::Ident) -> syn::Ident {
+        let method_name = match self {
+            MethodNameConf::Name(ref name) => name.to_owned(),
+            MethodNameConf::Format { prefix, suffix } => {
+                format!("{}{}{}", prefix, field_name.to_string(), suffix)
+            }
+        };
+        syn::Ident::new(&method_name, field_name.span())
     }
 }
 
 impl ::std::default::Default for FieldConf {
     fn default() -> Self {
         Self {
-            get: FieldVisConf::Crate,
-            set: FieldVisConf::Crate,
-            get_mut: FieldVisConf::Crate,
-            get_type: GetTypeConf::NotSet,
+            get: GetFieldConf {
+                vis: VisibilityConf::Crate,
+                typ: GetTypeConf::NotSet,
+                name: MethodNameConf::Format {
+                    prefix: "".to_owned(),
+                    suffix: "".to_owned(),
+                },
+            },
+            set: SetFieldConf {
+                vis: VisibilityConf::Crate,
+                name: MethodNameConf::Format {
+                    prefix: "set_".to_owned(),
+                    suffix: "".to_owned(),
+                },
+            },
+            mut_: MutFieldConf {
+                vis: VisibilityConf::Crate,
+                name: MethodNameConf::Format {
+                    prefix: "mut_".to_owned(),
+                    suffix: "".to_owned(),
+                },
+            },
         }
     }
 }
@@ -175,15 +275,32 @@ impl FieldConf {
                 ))?;
             }
             syn::Meta::List(list) => {
-                let mut params = ::std::collections::HashSet::new();
+                let mut word_params = ::std::collections::HashSet::new();
+                let mut namevalue_params = ::std::collections::HashMap::new();
                 for nested_meta in list.nested.iter() {
                     match nested_meta {
                         syn::NestedMeta::Meta(meta) => match meta {
                             syn::Meta::Word(ident) => {
-                                if !params.insert(ident) {
+                                if !word_params.insert(ident) {
                                     Err(SynError::new(
                                         ident.span(),
                                         "this attribute has been set twice",
+                                    ))?;
+                                }
+                            }
+                            syn::Meta::NameValue(mnv) => {
+                                let syn::MetaNameValue { ident, lit, .. } = mnv;
+                                if let syn::Lit::Str(content) = lit {
+                                    if namevalue_params.insert(ident, content).is_some() {
+                                        Err(SynError::new(
+                                            ident.span(),
+                                            "this attribute has been set twice",
+                                        ))?;
+                                    }
+                                } else {
+                                    Err(SynError::new(
+                                        lit.span(),
+                                        "this literal should be a string literal",
                                     ))?;
                                 }
                             }
@@ -202,7 +319,7 @@ impl FieldConf {
                         }
                     }
                 }
-                if params.is_empty() {
+                if word_params.is_empty() && namevalue_params.is_empty() {
                     Err(SynError::new(
                         list.span(),
                         "this attribute should not be empty",
@@ -210,31 +327,59 @@ impl FieldConf {
                 }
                 match list.ident.to_string().as_ref() {
                     "get" => {
+                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, GET_TYPE_OPTIONS],
+                        )?;
                         if let Some(choice) =
-                            FieldVisConf::parse_from_input(&params, list.ident.span())?
+                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
-                            self.get = choice;
+                            self.get.vis = choice;
+                        }
+                        if let Some(choice) =
+                            MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
+                        {
+                            self.get.name = choice;
+                        }
+                        if let Some(choice) =
+                            GetTypeConf::parse_from_input(&namevalues, list.ident.span())?
+                        {
+                            self.get.typ = choice;
                         }
                     }
                     "set" => {
+                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
+                        )?;
                         if let Some(choice) =
-                            FieldVisConf::parse_from_input(&params, list.ident.span())?
+                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
-                            self.set = choice;
+                            self.set.vis = choice;
+                        }
+                        if let Some(choice) =
+                            MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
+                        {
+                            self.set.name = choice;
                         }
                     }
-                    "get_mut" => {
+                    "mut" => {
+                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
+                        )?;
                         if let Some(choice) =
-                            FieldVisConf::parse_from_input(&params, list.ident.span())?
+                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
                         {
-                            self.get_mut = choice;
+                            self.mut_.vis = choice;
                         }
-                    }
-                    "get_type" => {
                         if let Some(choice) =
-                            GetTypeConf::parse_from_input(&params, list.ident.span())?
+                            MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
                         {
-                            self.get_type = choice;
+                            self.mut_.name = choice;
                         }
                     }
                     _ => {
@@ -253,21 +398,18 @@ impl FieldConf {
     }
 }
 
-fn check_params<'a>(
-    params: &::std::collections::HashSet<&syn::Ident>,
+fn check_word_params<'a>(
+    word_params: &::std::collections::HashSet<&syn::Ident>,
     options: &[&[&'a str]],
 ) -> ParseResult<Vec<Option<&'a str>>> {
     let mut result = vec![None; options.len()];
     let mut find;
-    for p in params.iter() {
+    for p in word_params.iter() {
         find = false;
         for (i, group) in options.iter().enumerate() {
             for opt in group.iter() {
                 if p == opt {
                     find = true;
-                    if result[i].is_some() {
-                        Err(SynError::new(p.span(), "this attribute was set twice"))?;
-                    }
                     result[i] = Some(*opt);
                     break;
                 }
@@ -278,6 +420,42 @@ fn check_params<'a>(
         }
         if !find {
             Err(SynError::new(p.span(), "this attribute was unknown"))?;
+        }
+    }
+    Ok(result)
+}
+
+fn check_namevalue_params<'a>(
+    params: &::std::collections::HashMap<&syn::Ident, &syn::LitStr>,
+    options: &[(&'a str, Option<&[&'a str]>)],
+) -> ParseResult<::std::collections::HashMap<&'a str, String>> {
+    let mut result = ::std::collections::HashMap::new();
+    let mut find;
+    for (n, v) in params.iter() {
+        find = false;
+        let value = v.value();
+        for (k, group_opt) in options.iter() {
+            if n == k {
+                if let Some(group) = group_opt {
+                    for opt in group.iter() {
+                        if &value == opt {
+                            let _ = result.insert(*k, value.clone());
+                            find = true;
+                            break;
+                        }
+                    }
+                    if find {
+                        break;
+                    }
+                } else {
+                    let _ = result.insert(*k, value);
+                    find = true;
+                    break;
+                }
+            }
+        }
+        if !find {
+            Err(SynError::new(n.span(), "this attribute was unknown"))?;
         }
     }
     Ok(result)
@@ -304,6 +482,12 @@ fn parse_attrs(
                 }
                 syn::Meta::List(list) => {
                     if list.ident == ATTR_NAME {
+                        if list.nested.is_empty() {
+                            Err(SynError::new(
+                                list.span(),
+                                "this attribute should not be empty",
+                            ))?;
+                        }
                         for nested_meta in list.nested.iter() {
                             match nested_meta {
                                 syn::NestedMeta::Meta(meta) => {

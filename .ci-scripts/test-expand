@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+
+crate_name="property-ci-demo"
+rootdir=$(pwd)
+result=2
+
+function clean_temp () {
+    if [ -e "${crate_name}" ]; then
+        rm -rf "${crate_name}"
+    fi
+}
+
+function exit_func () {
+    cd "${rootdir}"
+    if [ ${result} -eq 0 ]; then
+        clean_temp
+        echo "result: passed"
+    else
+        echo "result: failed"
+    fi
+    exit ${result}
+}
+
+function main () {
+    trap exit_func EXIT
+
+    cargo expand --version
+
+    echo "Clean cache before run the test."
+    clean_temp
+
+    mkdir -p "${crate_name}/src"
+
+    echo "Generate the lib.rs."
+    sed -n '/^### Original Code$/,/^```$/p' README.md \
+        | tail -n +4 | head -n -1 > "${crate_name}/src/lib.rs"
+    echo "Generate the expected file."
+    sed -n '/^### Generated Code$/,/^```$/p' README.md \
+        | tail -n +4 | head -n -1 \
+        > "${crate_name}/expected.tmp"
+
+    echo "Generate the Cargo.toml."
+    cat >> "${crate_name}/Cargo.toml" << EOF
+    [package]
+    name = "${crate_name}"
+    version = "0.1.0"
+    authors = ["Boyu Yang <yangby@cryptape.com>"]
+    edition = "2018"
+
+    [dependencies]
+    property = { path = ".." }
+EOF
+
+    echo "Expand the macro for the demo."
+    cd "${crate_name}"
+    cargo expand 2>/dev/null \
+        | sed -n '/^impl Pet {$/,/^}$/p' \
+        | rustfmt --emit stdout \
+        > result.tmp
+    cd ..
+
+    echo "Do the test."
+    set +e
+    diff "${crate_name}/result.tmp" "${crate_name}/expected.tmp"
+    result=$?
+}
+
+main "$@"

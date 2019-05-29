@@ -14,15 +14,29 @@ Generate several common methods for structs automatically.
 
 ## Usage
 
-Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
+- Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
 
-Set container attributes can change the default settings for all fields.
+  There are three kinds of configurable attributes: `get`, `set`, `mut`.
 
-Change the settings of a single field via setting field attributes.
+- Set container attributes can change the default settings for all fields.
 
-There are three kinds of methods: `get` (`is` for Boolean), `set`, `get_mut`.
+- Change the settings of a single field via setting field attributes.
 
-The return type of `get` method can be set via `get_type`, there are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
+- The visibility of a method can be set via `#[property(get(visibility-type))]`
+
+  There are four kinds of the visibility type: `disable`, `public`, `crate` (default for all methods), and `private`.
+
+- The method name can be set in two ways:
+
+  1. Assign a complete name via `#[property(get(name = "method-name"))]`.
+
+  2. Set `prefix` and / or `suffix` via `#[property(set(prefix = "set_"), mut(suffix = "mut_"))]`.
+
+  The default setting for all fields is: `#[property(get(prefix = "", suffix = ""), set(prefix = "set_"), mut(prefix = "mut_"))]`.
+
+- The return type of `get` method can be set via `#[property(get(type = "return-type"))]`.
+
+  There are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
 
 ## In Action
 
@@ -40,22 +54,23 @@ pub enum Species {
 }
 
 #[derive(Property)]
-#[property(get(public), set(private), get_mut(disable))]
+#[property(get(public), set(private), mut(disable))]
 pub struct Pet {
-    #[property(set(disable))]
+    #[property(get(name = "identification"), set(disable))]
     id: [u8; 32],
     name: String,
     #[property(set(crate))]
     age: u32,
-    #[property(get_type(copy))]
+    #[property(get(type = "copy"))]
     species: Species,
+    #[property(get(prefix = "is_"))]
     died: bool,
-    #[property(get_type(clone))]
+    #[property(get(type = "clone"))]
     owner: String,
     family_members: Vec<String>,
-    #[property(get_type(ref))]
+    #[property(get(type = "ref"), mut(crate))]
     info: String,
-    #[property(get_mut(public))]
+    #[property(mut(public, suffix = "_mut"))]
     note: Option<String>,
 }
 ```
@@ -65,11 +80,11 @@ pub struct Pet {
 ```rust
 impl Pet {
     #[inline(always)]
-    pub fn get_id(&self) -> &[u8] {
+    pub fn identification(&self) -> &[u8] {
         &self.id[..]
     }
     #[inline(always)]
-    pub fn get_name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name[..]
     }
     #[inline(always)]
@@ -78,7 +93,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_age(&self) -> u32 {
+    pub fn age(&self) -> u32 {
         self.age
     }
     #[inline(always)]
@@ -87,7 +102,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_species(&self) -> Species {
+    pub fn species(&self) -> Species {
         self.species
     }
     #[inline(always)]
@@ -105,7 +120,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_owner(&self) -> String {
+    pub fn owner(&self) -> String {
         self.owner.clone()
     }
     #[inline(always)]
@@ -114,7 +129,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_family_members(&self) -> &[String] {
+    pub fn family_members(&self) -> &[String] {
         &self.family_members[..]
     }
     #[inline(always)]
@@ -123,7 +138,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_info(&self) -> &String {
+    pub fn info(&self) -> &String {
         &self.info
     }
     #[inline(always)]
@@ -132,7 +147,11 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_note(&self) -> Option<&String> {
+    pub(crate) fn mut_info(&mut self) -> &mut String {
+        &mut self.info
+    }
+    #[inline(always)]
+    pub fn note(&self) -> Option<&String> {
         self.note.as_ref()
     }
     #[inline(always)]
@@ -141,7 +160,7 @@ impl Pet {
         self
     }
     #[inline(always)]
-    pub fn get_mut_note(&mut self) -> &mut Option<String> {
+    pub fn note_mut(&mut self) -> &mut Option<String> {
         &mut self.note
     }
 }
