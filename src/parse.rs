@@ -12,6 +12,7 @@ use syn::{parse::Result as ParseResult, spanned::Spanned, Error as SynError};
 const ATTR_NAME: &str = "property";
 
 const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "copy", "clone"]));
+const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "own"]));
 const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
 const PREFIX_OPTION: (&str, Option<&[&str]>) = ("prefix", None);
 const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
@@ -35,6 +36,12 @@ pub(crate) enum GetTypeConf {
     Ref,
     Copy_,
     Clone_,
+}
+
+#[derive(Clone)]
+pub(crate) enum SetTypeConf {
+    Ref,
+    Own,
 }
 
 #[derive(Clone)]
@@ -62,6 +69,7 @@ pub(crate) struct GetFieldConf {
 pub(crate) struct SetFieldConf {
     pub(crate) vis: VisibilityConf,
     pub(crate) name: MethodNameConf,
+    pub(crate) typ: SetTypeConf,
 }
 
 #[derive(Clone)]
@@ -156,6 +164,21 @@ impl GetTypeConf {
     }
 }
 
+impl SetTypeConf {
+    pub(crate) fn parse_from_input(
+        namevalue_params: &::std::collections::HashMap<&str, String>,
+        span: proc_macro2::Span,
+    ) -> ParseResult<Option<Self>> {
+        let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
+            None => None,
+            Some("ref") => Some(SetTypeConf::Ref),
+            Some("own") => Some(SetTypeConf::Own),
+            _ => Err(SynError::new(span, "unreachable result"))?,
+        };
+        Ok(choice)
+    }
+}
+
 impl VisibilityConf {
     pub(crate) fn parse_from_input(
         input: Option<&str>,
@@ -241,11 +264,11 @@ impl ::std::default::Default for FieldConf {
         Self {
             get: GetFieldConf {
                 vis: VisibilityConf::Crate,
-                typ: GetTypeConf::NotSet,
                 name: MethodNameConf::Format {
                     prefix: "".to_owned(),
                     suffix: "".to_owned(),
                 },
+                typ: GetTypeConf::NotSet,
             },
             set: SetFieldConf {
                 vis: VisibilityConf::Crate,
@@ -253,6 +276,7 @@ impl ::std::default::Default for FieldConf {
                     prefix: "set_".to_owned(),
                     suffix: "".to_owned(),
                 },
+                typ: SetTypeConf::Ref,
             },
             mut_: MutFieldConf {
                 vis: VisibilityConf::Crate,
@@ -352,7 +376,7 @@ impl FieldConf {
                         let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
                         let namevalues = check_namevalue_params(
                             &namevalue_params,
-                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
                         )?;
                         if let Some(choice) =
                             VisibilityConf::parse_from_input(words[0], list.ident.span())?
@@ -363,6 +387,11 @@ impl FieldConf {
                             MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
                         {
                             self.set.name = choice;
+                        }
+                        if let Some(choice) =
+                            SetTypeConf::parse_from_input(&namevalues, list.ident.span())?
+                        {
+                            self.set.typ = choice;
                         }
                     }
                     "mut" => {

@@ -15,7 +15,7 @@ mod parse;
 
 use crate::{
     generate::{FieldType, GetType},
-    parse::{FieldDef, GetTypeConf, PropertyDef},
+    parse::{FieldDef, GetTypeConf, PropertyDef, SetTypeConf},
 };
 
 #[proc_macro_derive(Property, attributes(property))]
@@ -93,12 +93,20 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
     }
     if let Some(ts) = field_conf.set.vis.to_ts().and_then(|visibility| {
         let method_name = field_conf.set.name.complete(field_name);
-        let generated = quote!(
-            #visibility fn #method_name(&mut self, val: #field_type) -> &mut Self {
-                self.#field_name = val;
-                self
-            }
-        );
+        let generated = match field_conf.set.typ {
+            SetTypeConf::Ref => quote!(
+                #visibility fn #method_name(&mut self, val: #field_type) -> &mut Self {
+                    self.#field_name = val;
+                    self
+                }
+            ),
+            SetTypeConf::Own => quote!(
+                #visibility fn #method_name(mut self, val: #field_type) -> Self {
+                    self.#field_name = val;
+                    self
+                }
+            ),
+        };
         Some(generated)
     }) {
         property.push(ts);

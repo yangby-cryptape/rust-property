@@ -38,6 +38,10 @@ Generate several common methods for structs automatically.
 
   There are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
 
+- The input type of `set` method can be set via `#[property(set(type = "input-type"))]`.
+
+  There are three kinds of the input type: `ref` (default) and `own`.
+
 ## In Action
 
 ### Original Code
@@ -59,7 +63,7 @@ pub struct Pet {
     #[property(get(name = "identification"), set(disable))]
     id: [u8; 32],
     name: String,
-    #[property(set(crate))]
+    #[property(set(crate, type = "own"))]
     age: u32,
     #[property(get(type = "copy"))]
     species: Species,
@@ -97,7 +101,7 @@ impl Pet {
         self.age
     }
     #[inline(always)]
-    pub(crate) fn set_age(&mut self, val: u32) -> &mut Self {
+    pub(crate) fn set_age(mut self, val: u32) -> Self {
         self.age = val;
         self
     }
