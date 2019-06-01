@@ -18,6 +18,7 @@ use crate::{
     parse::{FieldDef, GetTypeConf, PropertyDef, SetTypeConf},
 };
 
+/// Generate several common methods for structs automatically.
 #[proc_macro_derive(Property, attributes(property))]
 pub fn derive_property(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as PropertyDef);
