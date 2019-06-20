@@ -92,8 +92,8 @@ impl Pet {
         &self.name[..]
     }
     #[inline(always)]
-    fn set_name(&mut self, val: String) -> &mut Self {
-        self.name = val;
+    fn set_name<T: Into<String>>(&mut self, val: T) -> &mut Self {
+        self.name = val.into();
         self
     }
     #[inline(always)]
@@ -101,8 +101,8 @@ impl Pet {
         self.age
     }
     #[inline(always)]
-    pub(crate) fn set_age(mut self, val: u32) -> Self {
-        self.age = val;
+    pub(crate) fn set_age<T: Into<u32>>(mut self, val: T) -> Self {
+        self.age = val.into();
         self
     }
     #[inline(always)]
@@ -110,8 +110,8 @@ impl Pet {
         self.species
     }
     #[inline(always)]
-    fn set_species(&mut self, val: Species) -> &mut Self {
-        self.species = val;
+    fn set_species<T: Into<Species>>(&mut self, val: T) -> &mut Self {
+        self.species = val.into();
         self
     }
     #[inline(always)]
@@ -119,8 +119,8 @@ impl Pet {
         self.died
     }
     #[inline(always)]
-    fn set_died(&mut self, val: bool) -> &mut Self {
-        self.died = val;
+    fn set_died<T: Into<bool>>(&mut self, val: T) -> &mut Self {
+        self.died = val.into();
         self
     }
     #[inline(always)]
@@ -128,8 +128,8 @@ impl Pet {
         self.owner.clone()
     }
     #[inline(always)]
-    fn set_owner(&mut self, val: String) -> &mut Self {
-        self.owner = val;
+    fn set_owner<T: Into<String>>(&mut self, val: T) -> &mut Self {
+        self.owner = val.into();
         self
     }
     #[inline(always)]
@@ -137,8 +137,11 @@ impl Pet {
         &self.family_members[..]
     }
     #[inline(always)]
-    fn set_family_members(&mut self, val: Vec<String>) -> &mut Self {
-        self.family_members = val;
+    fn set_family_members<T: Into<String>>(
+        &mut self,
+        val: impl IntoIterator<Item = T>,
+    ) -> &mut Self {
+        self.family_members = val.into_iter().map(Into::into).collect();
         self
     }
     #[inline(always)]
@@ -146,8 +149,8 @@ impl Pet {
         &self.info
     }
     #[inline(always)]
-    fn set_info(&mut self, val: String) -> &mut Self {
-        self.info = val;
+    fn set_info<T: Into<String>>(&mut self, val: T) -> &mut Self {
+        self.info = val.into();
         self
     }
     #[inline(always)]
@@ -159,8 +162,8 @@ impl Pet {
         self.note.as_ref()
     }
     #[inline(always)]
-    fn set_note(&mut self, val: Option<String>) -> &mut Self {
-        self.note = val;
+    fn set_note<T: Into<Option<String>>>(&mut self, val: T) -> &mut Self {
+        self.note = val.into();
         self
     }
     #[inline(always)]

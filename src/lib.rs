@@ -94,19 +94,45 @@ fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
     }
     if let Some(ts) = field_conf.set.vis.to_ts().and_then(|visibility| {
         let method_name = field_conf.set.name.complete(field_name);
-        let generated = match field_conf.set.typ {
-            SetTypeConf::Ref => quote!(
-                #visibility fn #method_name(&mut self, val: #field_type) -> &mut Self {
-                    self.#field_name = val;
-                    self
-                }
-            ),
-            SetTypeConf::Own => quote!(
-                #visibility fn #method_name(mut self, val: #field_type) -> Self {
-                    self.#field_name = val;
-                    self
-                }
-            ),
+        let generated = match prop_field_type {
+            FieldType::Vector(inner_type) => match field_conf.set.typ {
+                SetTypeConf::Ref => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                       &mut self,
+                       val: impl IntoIterator<Item = T>
+                    ) -> &mut Self {
+                        self.#field_name = val.into_iter().map(Into::into).collect();
+                        self
+                    }
+                ),
+                SetTypeConf::Own => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                        mut self,
+                        val: impl IntoIterator<Item = T>
+                    ) -> Self {
+                        self.#field_name = val.into_iter().map(Into::into).collect();
+                        self
+                    }
+                ),
+            },
+            _ => match field_conf.set.typ {
+                SetTypeConf::Ref => quote!(
+                    #visibility fn #method_name<T: Into<#field_type>>(
+                        &mut self, val: T
+                    ) -> &mut Self {
+                        self.#field_name = val.into();
+                        self
+                    }
+                ),
+                SetTypeConf::Own => quote!(
+                    #visibility fn #method_name<T: Into<#field_type>>(
+                        mut self, val: T
+                    ) -> Self {
+                        self.#field_name = val.into();
+                        self
+                    }
+                ),
+            },
         };
         Some(generated)
     }) {
