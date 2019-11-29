@@ -158,7 +158,7 @@ impl GetTypeConf {
             Some("ref") => Some(GetTypeConf::Ref),
             Some("copy") => Some(GetTypeConf::Copy_),
             Some("clone") => Some(GetTypeConf::Clone_),
-            _ => Err(SynError::new(span, "unreachable result"))?,
+            _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
@@ -173,7 +173,7 @@ impl SetTypeConf {
             None => None,
             Some("ref") => Some(SetTypeConf::Ref),
             Some("own") => Some(SetTypeConf::Own),
-            _ => Err(SynError::new(span, "unreachable result"))?,
+            _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
@@ -190,7 +190,7 @@ impl VisibilityConf {
             Some("public") => Some(VisibilityConf::Public),
             Some("crate") => Some(VisibilityConf::Crate),
             Some("private") => Some(VisibilityConf::Private),
-            _ => Err(SynError::new(span, "unreachable result"))?,
+            _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
@@ -293,10 +293,10 @@ impl FieldConf {
     fn apply_attrs(&mut self, meta: &syn::Meta) -> ParseResult<()> {
         match meta {
             syn::Meta::Path(path) => {
-                Err(SynError::new(
+                return Err(SynError::new(
                     path.span(),
                     "this attribute should not be a path",
-                ))?;
+                ));
             }
             syn::Meta::List(list) => {
                 let mut word_params = ::std::collections::HashSet::new();
@@ -306,48 +306,48 @@ impl FieldConf {
                         syn::NestedMeta::Meta(meta) => match meta {
                             syn::Meta::Path(path) => {
                                 if !word_params.insert(path) {
-                                    Err(SynError::new(
+                                    return Err(SynError::new(
                                         path.span(),
                                         "this attribute has been set twice",
-                                    ))?;
+                                    ));
                                 }
                             }
                             syn::Meta::NameValue(mnv) => {
                                 let syn::MetaNameValue { path, lit, .. } = mnv;
                                 if let syn::Lit::Str(content) = lit {
                                     if namevalue_params.insert(path, content).is_some() {
-                                        Err(SynError::new(
+                                        return Err(SynError::new(
                                             path.span(),
                                             "this attribute has been set twice",
-                                        ))?;
+                                        ));
                                     }
                                 } else {
-                                    Err(SynError::new(
+                                    return Err(SynError::new(
                                         lit.span(),
                                         "this literal should be a string literal",
-                                    ))?;
+                                    ));
                                 }
                             }
                             _ => {
-                                Err(SynError::new(
+                                return Err(SynError::new(
                                     meta.span(),
                                     "this attribute should be a word",
-                                ))?;
+                                ));
                             }
                         },
                         syn::NestedMeta::Lit(lit) => {
-                            Err(SynError::new(
+                            return Err(SynError::new(
                                 lit.span(),
                                 "this attribute should not be a literal",
-                            ))?;
+                            ));
                         }
                     }
                 }
                 if word_params.is_empty() && namevalue_params.is_empty() {
-                    Err(SynError::new(
+                    return Err(SynError::new(
                         list.span(),
                         "this attribute should not be empty",
-                    ))?;
+                    ));
                 }
                 if list.path.is_ident("get") {
                     let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
@@ -408,14 +408,14 @@ impl FieldConf {
                         self.mut_.name = choice;
                     }
                 } else {
-                    Err(SynError::new(list.path.span(), "unsupport attribute"))?;
+                    return Err(SynError::new(list.path.span(), "unsupport attribute"));
                 }
             }
             syn::Meta::NameValue(name_value) => {
-                Err(SynError::new(
+                return Err(SynError::new(
                     name_value.span(),
                     "this attribute should not be a name-value pair",
-                ))?;
+                ));
             }
         }
         Ok(())
@@ -443,7 +443,7 @@ fn check_word_params<'a>(
             }
         }
         if !find {
-            Err(SynError::new(p.span(), "this attribute was unknown"))?;
+            return Err(SynError::new(p.span(), "this attribute was unknown"));
         }
     }
     Ok(result)
@@ -479,7 +479,7 @@ fn check_namevalue_params<'a>(
             }
         }
         if !find {
-            Err(SynError::new(n.span(), "this attribute was unknown"))?;
+            return Err(SynError::new(n.span(), "this attribute was unknown"));
         }
     }
     Ok(result)
@@ -498,19 +498,19 @@ fn parse_attrs(
             match meta {
                 syn::Meta::Path(path) => {
                     if path.is_ident(ATTR_NAME) {
-                        Err(SynError::new(
+                        return Err(SynError::new(
                             path.span(),
                             "the attribute should not be a path",
-                        ))?;
+                        ));
                     }
                 }
                 syn::Meta::List(list) => {
                     if list.path.is_ident(ATTR_NAME) {
                         if list.nested.is_empty() {
-                            Err(SynError::new(
+                            return Err(SynError::new(
                                 list.span(),
                                 "this attribute should not be empty",
-                            ))?;
+                            ));
                         }
                         for nested_meta in list.nested.iter() {
                             match nested_meta {
@@ -518,10 +518,10 @@ fn parse_attrs(
                                     conf.apply_attrs(meta)?;
                                 }
                                 syn::NestedMeta::Lit(lit) => {
-                                    Err(SynError::new(
+                                    return Err(SynError::new(
                                         lit.span(),
                                         "the attribute in nested meta should not be a literal",
-                                    ))?;
+                                    ));
                                 }
                             }
                         }
@@ -529,10 +529,10 @@ fn parse_attrs(
                 }
                 syn::Meta::NameValue(name_value) => {
                     if name_value.path.is_ident(ATTR_NAME) {
-                        Err(SynError::new(
+                        return Err(SynError::new(
                             name_value.span(),
                             "the attribute should not be a name-value pair",
-                        ))?;
+                        ));
                     }
                 }
             }
