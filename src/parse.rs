@@ -299,13 +299,13 @@ impl FieldConf {
                 ));
             }
             syn::Meta::List(list) => {
-                let mut word_params = ::std::collections::HashSet::new();
+                let mut path_params = ::std::collections::HashSet::new();
                 let mut namevalue_params = ::std::collections::HashMap::new();
                 for nested_meta in list.nested.iter() {
                     match nested_meta {
                         syn::NestedMeta::Meta(meta) => match meta {
                             syn::Meta::Path(path) => {
-                                if !word_params.insert(path) {
+                                if !path_params.insert(path) {
                                     return Err(SynError::new(
                                         path.span(),
                                         "this attribute has been set twice",
@@ -331,7 +331,7 @@ impl FieldConf {
                             _ => {
                                 return Err(SynError::new(
                                     meta.span(),
-                                    "this attribute should be a word",
+                                    "this attribute should be a path",
                                 ));
                             }
                         },
@@ -343,7 +343,7 @@ impl FieldConf {
                         }
                     }
                 }
-                if word_params.is_empty() && namevalue_params.is_empty() {
+                if path_params.is_empty() && namevalue_params.is_empty() {
                     return Err(SynError::new(
                         list.span(),
                         "this attribute should not be empty",
@@ -359,13 +359,13 @@ impl FieldConf {
                     .as_ref()
                 {
                     "get" => {
-                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;
                         let namevalues = check_namevalue_params(
                             &namevalue_params,
                             &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, GET_TYPE_OPTIONS],
                         )?;
                         if let Some(choice) =
-                            VisibilityConf::parse_from_input(words[0], list.path.span())?
+                            VisibilityConf::parse_from_input(paths[0], list.path.span())?
                         {
                             self.get.vis = choice;
                         }
@@ -381,13 +381,13 @@ impl FieldConf {
                         }
                     }
                     "set" => {
-                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;
                         let namevalues = check_namevalue_params(
                             &namevalue_params,
                             &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
                         )?;
                         if let Some(choice) =
-                            VisibilityConf::parse_from_input(words[0], list.path.span())?
+                            VisibilityConf::parse_from_input(paths[0], list.path.span())?
                         {
                             self.set.vis = choice;
                         }
@@ -403,13 +403,13 @@ impl FieldConf {
                         }
                     }
                     "mut" => {
-                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;
                         let namevalues = check_namevalue_params(
                             &namevalue_params,
                             &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
                         )?;
                         if let Some(choice) =
-                            VisibilityConf::parse_from_input(words[0], list.path.span())?
+                            VisibilityConf::parse_from_input(paths[0], list.path.span())?
                         {
                             self.mut_.vis = choice;
                         }
@@ -438,13 +438,13 @@ impl FieldConf {
     }
 }
 
-fn check_word_params<'a>(
-    word_params: &::std::collections::HashSet<&syn::Path>,
+fn check_path_params<'a>(
+    path_params: &::std::collections::HashSet<&syn::Path>,
     options: &[&[&'a str]],
 ) -> ParseResult<Vec<Option<&'a str>>> {
     let mut result = vec![None; options.len()];
     let mut find;
-    for p in word_params.iter() {
+    for p in path_params.iter() {
         find = false;
         for (i, group) in options.iter().enumerate() {
             for opt in group.iter() {
