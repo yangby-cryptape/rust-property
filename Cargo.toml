@@ -14,9 +14,9 @@ license = "Apache-2.0 OR MIT"
 proc-macro = true
 
 [dependencies]
-syn = "~0.15"
-quote = "~0.6"
-proc-macro2 = "~0.4"
+syn = { version = "1.0", features = ["derive", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
 
 [badges]
 travis-ci = { repository = "yangby-cryptape/rust-property" }

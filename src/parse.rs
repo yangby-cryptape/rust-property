@@ -158,7 +158,7 @@ impl GetTypeConf {
             Some("ref") => Some(GetTypeConf::Ref),
             Some("copy") => Some(GetTypeConf::Copy_),
             Some("clone") => Some(GetTypeConf::Clone_),
-            _ => Err(SynError::new(span, "unreachable result"))?,
+            _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
@@ -173,7 +173,7 @@ impl SetTypeConf {
             None => None,
             Some("ref") => Some(SetTypeConf::Ref),
             Some("own") => Some(SetTypeConf::Own),
-            _ => Err(SynError::new(span, "unreachable result"))?,
+            _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
@@ -190,7 +190,7 @@ impl VisibilityConf {
             Some("public") => Some(VisibilityConf::Public),
             Some("crate") => Some(VisibilityConf::Crate),
             Some("private") => Some(VisibilityConf::Private),
-            _ => Err(SynError::new(span, "unreachable result"))?,
+            _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
@@ -292,11 +292,11 @@ impl ::std::default::Default for FieldConf {
 impl FieldConf {
     fn apply_attrs(&mut self, meta: &syn::Meta) -> ParseResult<()> {
         match meta {
-            syn::Meta::Word(ident) => {
-                Err(SynError::new(
-                    ident.span(),
-                    "this attribute should not be a word",
-                ))?;
+            syn::Meta::Path(path) => {
+                return Err(SynError::new(
+                    path.span(),
+                    "this attribute should not be a path",
+                ));
             }
             syn::Meta::List(list) => {
                 let mut word_params = ::std::collections::HashSet::new();
@@ -304,123 +304,118 @@ impl FieldConf {
                 for nested_meta in list.nested.iter() {
                     match nested_meta {
                         syn::NestedMeta::Meta(meta) => match meta {
-                            syn::Meta::Word(ident) => {
-                                if !word_params.insert(ident) {
-                                    Err(SynError::new(
-                                        ident.span(),
+                            syn::Meta::Path(path) => {
+                                if !word_params.insert(path) {
+                                    return Err(SynError::new(
+                                        path.span(),
                                         "this attribute has been set twice",
-                                    ))?;
+                                    ));
                                 }
                             }
                             syn::Meta::NameValue(mnv) => {
-                                let syn::MetaNameValue { ident, lit, .. } = mnv;
+                                let syn::MetaNameValue { path, lit, .. } = mnv;
                                 if let syn::Lit::Str(content) = lit {
-                                    if namevalue_params.insert(ident, content).is_some() {
-                                        Err(SynError::new(
-                                            ident.span(),
+                                    if namevalue_params.insert(path, content).is_some() {
+                                        return Err(SynError::new(
+                                            path.span(),
                                             "this attribute has been set twice",
-                                        ))?;
+                                        ));
                                     }
                                 } else {
-                                    Err(SynError::new(
+                                    return Err(SynError::new(
                                         lit.span(),
                                         "this literal should be a string literal",
-                                    ))?;
+                                    ));
                                 }
                             }
                             _ => {
-                                Err(SynError::new(
+                                return Err(SynError::new(
                                     meta.span(),
                                     "this attribute should be a word",
-                                ))?;
+                                ));
                             }
                         },
-                        syn::NestedMeta::Literal(lit) => {
-                            Err(SynError::new(
+                        syn::NestedMeta::Lit(lit) => {
+                            return Err(SynError::new(
                                 lit.span(),
                                 "this attribute should not be a literal",
-                            ))?;
+                            ));
                         }
                     }
                 }
                 if word_params.is_empty() && namevalue_params.is_empty() {
-                    Err(SynError::new(
+                    return Err(SynError::new(
                         list.span(),
                         "this attribute should not be empty",
-                    ))?;
+                    ));
                 }
-                match list.ident.to_string().as_ref() {
-                    "get" => {
-                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
-                        let namevalues = check_namevalue_params(
-                            &namevalue_params,
-                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, GET_TYPE_OPTIONS],
-                        )?;
-                        if let Some(choice) =
-                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
-                        {
-                            self.get.vis = choice;
-                        }
-                        if let Some(choice) =
-                            MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
-                        {
-                            self.get.name = choice;
-                        }
-                        if let Some(choice) =
-                            GetTypeConf::parse_from_input(&namevalues, list.ident.span())?
-                        {
-                            self.get.typ = choice;
-                        }
+                if list.path.is_ident("get") {
+                    let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                    let namevalues = check_namevalue_params(
+                        &namevalue_params,
+                        &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, GET_TYPE_OPTIONS],
+                    )?;
+                    if let Some(choice) =
+                        VisibilityConf::parse_from_input(words[0], list.path.span())?
+                    {
+                        self.get.vis = choice;
                     }
-                    "set" => {
-                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
-                        let namevalues = check_namevalue_params(
-                            &namevalue_params,
-                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
-                        )?;
-                        if let Some(choice) =
-                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
-                        {
-                            self.set.vis = choice;
-                        }
-                        if let Some(choice) =
-                            MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
-                        {
-                            self.set.name = choice;
-                        }
-                        if let Some(choice) =
-                            SetTypeConf::parse_from_input(&namevalues, list.ident.span())?
-                        {
-                            self.set.typ = choice;
-                        }
+                    if let Some(choice) =
+                        MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                    {
+                        self.get.name = choice;
                     }
-                    "mut" => {
-                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
-                        let namevalues = check_namevalue_params(
-                            &namevalue_params,
-                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
-                        )?;
-                        if let Some(choice) =
-                            VisibilityConf::parse_from_input(words[0], list.ident.span())?
-                        {
-                            self.mut_.vis = choice;
-                        }
-                        if let Some(choice) =
-                            MethodNameConf::parse_from_input(&namevalues, list.ident.span())?
-                        {
-                            self.mut_.name = choice;
-                        }
+                    if let Some(choice) =
+                        GetTypeConf::parse_from_input(&namevalues, list.path.span())?
+                    {
+                        self.get.typ = choice;
                     }
-                    _ => {
-                        Err(SynError::new(list.ident.span(), "unsupport attribute"))?;
+                } else if list.path.is_ident("set") {
+                    let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                    let namevalues = check_namevalue_params(
+                        &namevalue_params,
+                        &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
+                    )?;
+                    if let Some(choice) =
+                        VisibilityConf::parse_from_input(words[0], list.path.span())?
+                    {
+                        self.set.vis = choice;
                     }
+                    if let Some(choice) =
+                        MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                    {
+                        self.set.name = choice;
+                    }
+                    if let Some(choice) =
+                        SetTypeConf::parse_from_input(&namevalues, list.path.span())?
+                    {
+                        self.set.typ = choice;
+                    }
+                } else if list.path.is_ident("mut") {
+                    let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                    let namevalues = check_namevalue_params(
+                        &namevalue_params,
+                        &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
+                    )?;
+                    if let Some(choice) =
+                        VisibilityConf::parse_from_input(words[0], list.path.span())?
+                    {
+                        self.mut_.vis = choice;
+                    }
+                    if let Some(choice) =
+                        MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                    {
+                        self.mut_.name = choice;
+                    }
+                } else {
+                    return Err(SynError::new(list.path.span(), "unsupport attribute"));
                 }
             }
             syn::Meta::NameValue(name_value) => {
-                Err(SynError::new(
+                return Err(SynError::new(
                     name_value.span(),
                     "this attribute should not be a name-value pair",
-                ))?;
+                ));
             }
         }
         Ok(())
@@ -428,7 +423,7 @@ impl FieldConf {
 }
 
 fn check_word_params<'a>(
-    word_params: &::std::collections::HashSet<&syn::Ident>,
+    word_params: &::std::collections::HashSet<&syn::Path>,
     options: &[&[&'a str]],
 ) -> ParseResult<Vec<Option<&'a str>>> {
     let mut result = vec![None; options.len()];
@@ -437,7 +432,7 @@ fn check_word_params<'a>(
         find = false;
         for (i, group) in options.iter().enumerate() {
             for opt in group.iter() {
-                if p == opt {
+                if p.is_ident(opt) {
                     find = true;
                     result[i] = Some(*opt);
                     break;
@@ -448,14 +443,14 @@ fn check_word_params<'a>(
             }
         }
         if !find {
-            Err(SynError::new(p.span(), "this attribute was unknown"))?;
+            return Err(SynError::new(p.span(), "this attribute was unknown"));
         }
     }
     Ok(result)
 }
 
 fn check_namevalue_params<'a>(
-    params: &::std::collections::HashMap<&syn::Ident, &syn::LitStr>,
+    params: &::std::collections::HashMap<&syn::Path, &syn::LitStr>,
     options: &[(&'a str, Option<&[&'a str]>)],
 ) -> ParseResult<::std::collections::HashMap<&'a str, String>> {
     let mut result = ::std::collections::HashMap::new();
@@ -464,7 +459,7 @@ fn check_namevalue_params<'a>(
         find = false;
         let value = v.value();
         for (k, group_opt) in options.iter() {
-            if n == k {
+            if n.is_ident(k) {
                 if let Some(group) = group_opt {
                     for opt in group.iter() {
                         if &value == opt {
@@ -484,7 +479,7 @@ fn check_namevalue_params<'a>(
             }
         }
         if !find {
-            Err(SynError::new(n.span(), "this attribute was unknown"))?;
+            return Err(SynError::new(n.span(), "this attribute was unknown"));
         }
     }
     Ok(result)
@@ -501,43 +496,43 @@ fn parse_attrs(
                 .parse_meta()
                 .map_err(|_| SynError::new(span, "failed to parse the attributes"))?;
             match meta {
-                syn::Meta::Word(ident) => {
-                    if ident == ATTR_NAME {
-                        Err(SynError::new(
-                            ident.span(),
-                            "the attribute should not be a word",
-                        ))?;
+                syn::Meta::Path(path) => {
+                    if path.is_ident(ATTR_NAME) {
+                        return Err(SynError::new(
+                            path.span(),
+                            "the attribute should not be a path",
+                        ));
                     }
                 }
                 syn::Meta::List(list) => {
-                    if list.ident == ATTR_NAME {
+                    if list.path.is_ident(ATTR_NAME) {
                         if list.nested.is_empty() {
-                            Err(SynError::new(
+                            return Err(SynError::new(
                                 list.span(),
                                 "this attribute should not be empty",
-                            ))?;
+                            ));
                         }
                         for nested_meta in list.nested.iter() {
                             match nested_meta {
                                 syn::NestedMeta::Meta(meta) => {
                                     conf.apply_attrs(meta)?;
                                 }
-                                syn::NestedMeta::Literal(lit) => {
-                                    Err(SynError::new(
+                                syn::NestedMeta::Lit(lit) => {
+                                    return Err(SynError::new(
                                         lit.span(),
                                         "the attribute in nested meta should not be a literal",
-                                    ))?;
+                                    ));
                                 }
                             }
                         }
                     }
                 }
                 syn::Meta::NameValue(name_value) => {
-                    if name_value.ident == ATTR_NAME {
-                        Err(SynError::new(
+                    if name_value.path.is_ident(ATTR_NAME) {
+                        return Err(SynError::new(
                             name_value.span(),
                             "the attribute should not be a name-value pair",
-                        ))?;
+                        ));
                     }
                 }
             }
