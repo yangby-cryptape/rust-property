@@ -349,66 +349,82 @@ impl FieldConf {
                         "this attribute should not be empty",
                     ));
                 }
-                if list.path.is_ident("get") {
-                    let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
-                    let namevalues = check_namevalue_params(
-                        &namevalue_params,
-                        &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, GET_TYPE_OPTIONS],
-                    )?;
-                    if let Some(choice) =
-                        VisibilityConf::parse_from_input(words[0], list.path.span())?
-                    {
-                        self.get.vis = choice;
+                match list
+                    .path
+                    .get_ident()
+                    .ok_or_else(|| {
+                        SynError::new(list.path.span(), "this attribute should be a single ident")
+                    })?
+                    .to_string()
+                    .as_ref()
+                {
+                    "get" => {
+                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, GET_TYPE_OPTIONS],
+                        )?;
+                        if let Some(choice) =
+                            VisibilityConf::parse_from_input(words[0], list.path.span())?
+                        {
+                            self.get.vis = choice;
+                        }
+                        if let Some(choice) =
+                            MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.get.name = choice;
+                        }
+                        if let Some(choice) =
+                            GetTypeConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.get.typ = choice;
+                        }
                     }
-                    if let Some(choice) =
-                        MethodNameConf::parse_from_input(&namevalues, list.path.span())?
-                    {
-                        self.get.name = choice;
+                    "set" => {
+                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
+                        )?;
+                        if let Some(choice) =
+                            VisibilityConf::parse_from_input(words[0], list.path.span())?
+                        {
+                            self.set.vis = choice;
+                        }
+                        if let Some(choice) =
+                            MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.set.name = choice;
+                        }
+                        if let Some(choice) =
+                            SetTypeConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.set.typ = choice;
+                        }
                     }
-                    if let Some(choice) =
-                        GetTypeConf::parse_from_input(&namevalues, list.path.span())?
-                    {
-                        self.get.typ = choice;
+                    "mut" => {
+                        let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
+                        )?;
+                        if let Some(choice) =
+                            VisibilityConf::parse_from_input(words[0], list.path.span())?
+                        {
+                            self.mut_.vis = choice;
+                        }
+                        if let Some(choice) =
+                            MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.mut_.name = choice;
+                        }
                     }
-                } else if list.path.is_ident("set") {
-                    let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
-                    let namevalues = check_namevalue_params(
-                        &namevalue_params,
-                        &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
-                    )?;
-                    if let Some(choice) =
-                        VisibilityConf::parse_from_input(words[0], list.path.span())?
-                    {
-                        self.set.vis = choice;
+                    attr => {
+                        return Err(SynError::new(
+                            list.path.span(),
+                            format!("unsupport attribute `{}`", attr),
+                        ));
                     }
-                    if let Some(choice) =
-                        MethodNameConf::parse_from_input(&namevalues, list.path.span())?
-                    {
-                        self.set.name = choice;
-                    }
-                    if let Some(choice) =
-                        SetTypeConf::parse_from_input(&namevalues, list.path.span())?
-                    {
-                        self.set.typ = choice;
-                    }
-                } else if list.path.is_ident("mut") {
-                    let words = check_word_params(&word_params, &[VISIBILITY_OPTIONS])?;
-                    let namevalues = check_namevalue_params(
-                        &namevalue_params,
-                        &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION],
-                    )?;
-                    if let Some(choice) =
-                        VisibilityConf::parse_from_input(words[0], list.path.span())?
-                    {
-                        self.mut_.vis = choice;
-                    }
-                    if let Some(choice) =
-                        MethodNameConf::parse_from_input(&namevalues, list.path.span())?
-                    {
-                        self.mut_.name = choice;
-                    }
-                } else {
-                    return Err(SynError::new(list.path.span(), "unsupport attribute"));
                 }
             }
             syn::Meta::NameValue(name_value) => {
