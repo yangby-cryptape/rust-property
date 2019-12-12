@@ -31,25 +31,25 @@ pub(crate) enum FieldType {
 impl GetType {
     pub(crate) fn from_field_type(ty: &FieldType) -> Self {
         match ty {
-            FieldType::Number | FieldType::Boolean | FieldType::Character => GetType::Copy_,
-            FieldType::String_ => GetType::String_,
+            FieldType::Number | FieldType::Boolean | FieldType::Character => Self::Copy_,
+            FieldType::String_ => Self::String_,
             FieldType::Array(type_array) => {
                 let syn::TypeArray {
                     bracket_token,
                     elem,
                     ..
                 } = type_array.clone();
-                GetType::Slice(syn::TypeSlice {
+                Self::Slice(syn::TypeSlice {
                     bracket_token,
                     elem,
                 })
             }
-            FieldType::Vector(inner_type) => GetType::Slice(syn::TypeSlice {
+            FieldType::Vector(inner_type) => Self::Slice(syn::TypeSlice {
                 bracket_token: syn::token::Bracket::default(),
                 elem: Box::new(inner_type.clone()),
             }),
-            FieldType::Option_(inner_type) => GetType::Option_(inner_type.clone()),
-            FieldType::Unhandled => GetType::Ref,
+            FieldType::Option_(inner_type) => Self::Option_(inner_type.clone()),
+            FieldType::Unhandled => Self::Ref,
         }
     }
 }
@@ -61,18 +61,18 @@ impl FieldType {
                 let segs = &type_path.path.segments;
                 if segs.len() == 1 {
                     match segs[0].ident.to_string().as_ref() {
-                        "f32" | "f64" => FieldType::Number,
-                        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => FieldType::Number,
-                        "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => FieldType::Number,
-                        "bool" => FieldType::Boolean,
-                        "char" => FieldType::Character,
-                        "String" => FieldType::String_,
+                        "f32" | "f64" => Self::Number,
+                        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => Self::Number,
+                        "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => Self::Number,
+                        "bool" => Self::Boolean,
+                        "char" => Self::Character,
+                        "String" => Self::String_,
                         "Vec" => {
                             if let syn::PathArguments::AngleBracketed(inner) =
                                 &type_path.path.segments[0].arguments
                             {
                                 if let syn::GenericArgument::Type(ref inner_type) = inner.args[0] {
-                                    FieldType::Vector(inner_type.clone())
+                                    Self::Vector(inner_type.clone())
                                 } else {
                                     unreachable!()
                                 }
@@ -85,19 +85,19 @@ impl FieldType {
                                 &type_path.path.segments[0].arguments
                             {
                                 let args = &inner.args;
-                                FieldType::Option_(quote!(#args))
+                                Self::Option_(quote!(#args))
                             } else {
                                 unreachable!()
                             }
                         }
-                        _ => FieldType::Unhandled,
+                        _ => Self::Unhandled,
                     }
                 } else {
-                    FieldType::Unhandled
+                    Self::Unhandled
                 }
             }
-            syn::Type::Array(type_array) => FieldType::Array(type_array.clone()),
-            _ => FieldType::Unhandled,
+            syn::Type::Array(type_array) => Self::Array(type_array.clone()),
+            _ => Self::Unhandled,
         }
     }
 }

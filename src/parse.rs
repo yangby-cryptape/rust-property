@@ -31,7 +31,7 @@ pub(crate) struct FieldDef {
     pub(crate) conf: FieldConf,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) enum GetTypeConf {
     NotSet,
     Ref,
@@ -39,13 +39,13 @@ pub(crate) enum GetTypeConf {
     Clone_,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) enum SetTypeConf {
     Ref,
     Own,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) enum VisibilityConf {
     Disable,
     Public,
@@ -53,7 +53,7 @@ pub(crate) enum VisibilityConf {
     Private,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) enum SortTypeConf {
     Ascending,
     Descending,
@@ -169,9 +169,9 @@ impl GetTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
             None => None,
-            Some("ref") => Some(GetTypeConf::Ref),
-            Some("copy") => Some(GetTypeConf::Copy_),
-            Some("clone") => Some(GetTypeConf::Clone_),
+            Some("ref") => Some(Self::Ref),
+            Some("copy") => Some(Self::Copy_),
+            Some("clone") => Some(Self::Clone_),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -185,8 +185,8 @@ impl SetTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
             None => None,
-            Some("ref") => Some(SetTypeConf::Ref),
-            Some("own") => Some(SetTypeConf::Own),
+            Some("ref") => Some(Self::Ref),
+            Some("own") => Some(Self::Own),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -200,21 +200,21 @@ impl VisibilityConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match input {
             None => None,
-            Some("disable") => Some(VisibilityConf::Disable),
-            Some("public") => Some(VisibilityConf::Public),
-            Some("crate") => Some(VisibilityConf::Crate),
-            Some("private") => Some(VisibilityConf::Private),
+            Some("disable") => Some(Self::Disable),
+            Some("public") => Some(Self::Public),
+            Some("crate") => Some(Self::Crate),
+            Some("private") => Some(Self::Private),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
 
-    pub(crate) fn to_ts(&self) -> Option<proc_macro2::TokenStream> {
+    pub(crate) fn to_ts(self) -> Option<proc_macro2::TokenStream> {
         match self {
-            VisibilityConf::Disable => None,
-            VisibilityConf::Public => Some(quote!(pub)),
-            VisibilityConf::Crate => Some(quote!(pub(crate))),
-            VisibilityConf::Private => Some(quote!()),
+            Self::Disable => None,
+            Self::Public => Some(quote!(pub)),
+            Self::Crate => Some(quote!(pub(crate))),
+            Self::Private => Some(quote!()),
         }
     }
 }
@@ -226,17 +226,17 @@ impl SortTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match input {
             None => None,
-            Some("asc") => Some(SortTypeConf::Ascending),
-            Some("desc") => Some(SortTypeConf::Descending),
+            Some("asc") => Some(Self::Ascending),
+            Some("desc") => Some(Self::Descending),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
     }
 
-    pub(crate) fn is_ascending(&self) -> bool {
-        match *self {
-            SortTypeConf::Ascending => true,
-            SortTypeConf::Descending => false,
+    pub(crate) fn is_ascending(self) -> bool {
+        match self {
+            Self::Ascending => true,
+            Self::Descending => false,
         }
     }
 }
@@ -265,16 +265,16 @@ impl MethodNameConf {
                     "do not set prefix or suffix if name was set",
                 ))
             } else {
-                Ok(Some(MethodNameConf::Name(name)))
+                Ok(Some(Self::Name(name)))
             }
         } else {
             let choice = match (prefix_opt, suffix_opt) {
-                (Some(prefix), Some(suffix)) => Some(MethodNameConf::Format { prefix, suffix }),
-                (Some(prefix), None) => Some(MethodNameConf::Format {
+                (Some(prefix), Some(suffix)) => Some(Self::Format { prefix, suffix }),
+                (Some(prefix), None) => Some(Self::Format {
                     prefix,
                     suffix: "".to_owned(),
                 }),
-                (None, Some(suffix)) => Some(MethodNameConf::Format {
+                (None, Some(suffix)) => Some(Self::Format {
                     prefix: "".to_owned(),
                     suffix,
                 }),
@@ -286,8 +286,8 @@ impl MethodNameConf {
 
     pub(crate) fn complete(&self, field_name: &syn::Ident) -> syn::Ident {
         let method_name = match self {
-            MethodNameConf::Name(ref name) => name.to_owned(),
-            MethodNameConf::Format { prefix, suffix } => {
+            Self::Name(ref name) => name.to_owned(),
+            Self::Format { prefix, suffix } => {
                 format!("{}{}{}", prefix, field_name.to_string(), suffix)
             }
         };
