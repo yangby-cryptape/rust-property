@@ -21,28 +21,90 @@ use crate::{
 /// Generate several common methods for structs automatically.
 #[proc_macro_derive(Property, attributes(property))]
 pub fn derive_property(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(input as PropertyDef);
+    let property = syn::parse_macro_input!(input as PropertyDef);
     let expanded = {
-        let PropertyDef {
-            name,
-            generics,
-            fields,
-        } = input;
-        let (impl_generics, type_generics, where_clause_opt) = generics.split_for_impl();
-        let methods = fields.into_iter().fold(Vec::new(), |mut r, f| {
+        let name = &property.name;
+        let (impl_generics, type_generics, where_clause_opt) = property.generics.split_for_impl();
+        let methods = property.fields.iter().fold(Vec::new(), |mut r, f| {
             r.append(&mut derive_property_for_field(f));
             r
         });
-        quote!(
+        let impl_methods = quote!(
             impl #impl_generics #name #type_generics #where_clause_opt {
                 #(#[inline(always)] #methods)*
             }
-        )
+        );
+        if let Some(impl_traits) = implement_traits(&property) {
+            quote!(#impl_methods #impl_traits)
+        } else {
+            impl_methods
+        }
     };
     expanded.into()
 }
 
-fn derive_property_for_field(field: FieldDef) -> Vec<proc_macro2::TokenStream> {
+fn implement_traits(property: &PropertyDef) -> Option<proc_macro2::TokenStream> {
+    let name = &property.name;
+    let mut ordered: Vec<_> = property
+        .fields
+        .iter()
+        .filter(|f| f.conf.ord.number.is_some())
+        .collect();
+    if ordered.is_empty() {
+        None
+    } else {
+        ordered.sort_by(|f1, f2| {
+            let n1 = f1.conf.ord.number.unwrap();
+            let n2 = f2.conf.ord.number.unwrap();
+            n1.cmp(&n2)
+        });
+        let has_same_serial_number = ordered.windows(2).any(|f| {
+            let n1 = f[0].conf.ord.number.unwrap();
+            let n2 = f[1].conf.ord.number.unwrap();
+            n1 == n2
+        });
+        if has_same_serial_number {
+            panic!("there are at least two fields that have same serial number");
+        }
+        let partial_eq_stmt = ordered.iter().fold(Vec::new(), |mut r, f| {
+            if !r.is_empty() {
+                r.push(quote!(&&));
+            }
+            let field_name = &f.ident;
+            r.push(quote!(self.#field_name == other.#field_name));
+            r
+        });
+        let partial_ord_stmt = ordered.iter().fold(Vec::new(), |mut r, f| {
+            let field_name = &f.ident;
+            r.push(if f.conf.ord.sort_type.is_ascending() {
+                quote!(let result = self.#field_name.partial_cmp(&other.#field_name);)
+            } else {
+                quote!(let result = other.#field_name.partial_cmp(&self.#field_name);)
+            });
+            r.push(quote!(if result != Some(::core::cmp::Ordering::Equal) {
+                return result;
+            }));
+            r
+        });
+        let stmts = quote!(
+            impl PartialEq for #name {
+                fn eq(&self, other: &Self) -> bool {
+                    #(#partial_eq_stmt)*
+                }
+            }
+
+            impl PartialOrd for #name {
+                fn partial_cmp(&self, other: &Self) -> Option<::core::cmp::Ordering> {
+                    #(#partial_ord_stmt)*
+                    Some(::core::cmp::Ordering::Equal)
+                }
+            }
+        );
+        Some(stmts)
+    }
+}
+
+fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> {
     let mut property = Vec::new();
     let field_type = &field.ty;
     let field_name = &field.ident;

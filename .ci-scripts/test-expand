@@ -57,9 +57,17 @@ EOF
     echo "Expand the macro for the demo."
     cd "${crate_name}"
     cargo expand 2>/dev/null \
-        | sed -n '/^impl Pet {$/,/^}$/p' \
         | rustfmt --emit stdout \
+        > result-full.tmp
+    cat result-full.tmp \
+        | sed -n '/^impl Pet {$/,/^}$/p' \
         > result.tmp
+    cat result-full.tmp \
+        | sed -n '/^impl PartialEq for Pet {$/,/^}$/p' \
+        >> result.tmp
+    cat result-full.tmp \
+        | sed -n '/^impl PartialOrd for Pet {$/,/^}$/p' \
+        >> result.tmp
     cd ..
 
     echo "Do the test."

@@ -16,7 +16,7 @@ Generate several common methods for structs automatically.
 
 - Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
 
-  There are three kinds of configurable attributes: `get`, `set`, `mut`.
+  There are four kinds of configurable attributes: `get`, `set`, `mut` and `ord`.
 
 - Set container attributes can change the default settings for all fields.
 
@@ -24,7 +24,7 @@ Generate several common methods for structs automatically.
 
 - The visibility of a method can be set via `#[property(get(visibility-type))]`
 
-  There are four kinds of the visibility type: `disable`, `public`, `crate` (default for all methods), and `private`.
+  There are four kinds of the visibility types: `disable`, `public`, `crate` (default for all methods), and `private`.
 
 - The method name can be set in two ways:
 
@@ -36,11 +36,26 @@ Generate several common methods for structs automatically.
 
 - The return type of `get` method can be set via `#[property(get(type = "return-type"))]`.
 
-  There are three kinds of the return type: `ref` (default in most cases), `clone` and `copy`.
+  There are three kinds of the return types: `ref` (default in most cases), `clone` and `copy`.
 
 - The input type of `set` method can be set via `#[property(set(type = "input-type"))]`.
 
-  There are three kinds of the input type: `ref` (default) and `own`.
+  There are two kinds of the input types: `ref` (default) and `own`.
+
+- If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
+
+  - A serial number is required for the `ord` field attribute, it's an unsigned number with a `_` prefix.
+
+    The serial numbers could be noncontinuous, but any two number of these could not be equal.
+
+    No serial number is allowed if the `ord` attribute is a container attribute.
+
+  - There are two kind of sort types: `asc` and `desc`.
+
+    The default is ascending (`asc`), it can be changed to descending if the `desc` was set.
+
+[`PartialEq`]: https://doc.rust-lang.org/std/cmp/trait.PartialEq.html
+[`PartialOrd`]: https://doc.rust-lang.org/std/cmp/trait.PartialOrd.html
 
 ## In Action
 
@@ -58,16 +73,16 @@ pub enum Species {
 }
 
 #[derive(Property)]
-#[property(get(public), set(private), mut(disable))]
+#[property(get(public), set(private), mut(disable), ord(desc))]
 pub struct Pet {
-    #[property(get(name = "identification"), set(disable))]
+    #[property(get(name = "identification"), set(disable), ord(asc, _2))]
     id: [u8; 32],
     name: String,
-    #[property(set(crate, type = "own"))]
+    #[property(set(crate, type = "own"), ord(_0))]
     age: u32,
     #[property(get(type = "copy"))]
     species: Species,
-    #[property(get(prefix = "is_"))]
+    #[property(get(prefix = "is_"), ord(_1))]
     died: bool,
     #[property(get(type = "clone"))]
     owner: String,
@@ -169,6 +184,28 @@ impl Pet {
     #[inline(always)]
     pub fn note_mut(&mut self) -> &mut Option<String> {
         &mut self.note
+    }
+}
+impl PartialEq for Pet {
+    fn eq(&self, other: &Self) -> bool {
+        self.age == other.age && self.died == other.died && self.id == other.id
+    }
+}
+impl PartialOrd for Pet {
+    fn partial_cmp(&self, other: &Self) -> Option<::core::cmp::Ordering> {
+        let result = other.age.partial_cmp(&self.age);
+        if result != Some(::core::cmp::Ordering::Equal) {
+            return result;
+        }
+        let result = other.died.partial_cmp(&self.died);
+        if result != Some(::core::cmp::Ordering::Equal) {
+            return result;
+        }
+        let result = self.id.partial_cmp(&other.id);
+        if result != Some(::core::cmp::Ordering::Equal) {
+            return result;
+        }
+        Some(::core::cmp::Ordering::Equal)
     }
 }
 ```

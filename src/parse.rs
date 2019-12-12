@@ -17,6 +17,7 @@ const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
 const PREFIX_OPTION: (&str, Option<&[&str]>) = ("prefix", None);
 const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
 const VISIBILITY_OPTIONS: &[&str] = &["disable", "public", "crate", "private"];
+const SORT_TYPE_OPTIONS: &[&str] = &["asc", "desc"];
 
 pub(crate) struct PropertyDef {
     pub(crate) name: syn::Ident,
@@ -53,6 +54,12 @@ pub(crate) enum VisibilityConf {
 }
 
 #[derive(Clone)]
+pub(crate) enum SortTypeConf {
+    Ascending,
+    Descending,
+}
+
+#[derive(Clone)]
 pub(crate) enum MethodNameConf {
     Name(String),
     Format { prefix: String, suffix: String },
@@ -79,10 +86,17 @@ pub(crate) struct MutFieldConf {
 }
 
 #[derive(Clone)]
+pub(crate) struct OrdFieldConf {
+    pub(crate) number: Option<usize>,
+    pub(crate) sort_type: SortTypeConf,
+}
+
+#[derive(Clone)]
 pub(crate) struct FieldConf {
     pub(crate) get: GetFieldConf,
     pub(crate) set: SetFieldConf,
     pub(crate) mut_: MutFieldConf,
+    pub(crate) ord: OrdFieldConf,
 }
 
 impl syn::parse::Parse for PropertyDef {
@@ -107,7 +121,7 @@ impl syn::parse::Parse for PropertyDef {
 
 impl PropertyDef {
     fn parse_attrs(span: proc_macro2::Span, attrs: &[syn::Attribute]) -> ParseResult<FieldConf> {
-        Ok(parse_attrs(span, Default::default(), attrs)?)
+        Ok(parse_attrs(span, Default::default(), attrs, false)?)
     }
 }
 
@@ -144,7 +158,7 @@ impl FieldDef {
         conf: FieldConf,
         attrs: &[syn::Attribute],
     ) -> ParseResult<FieldConf> {
-        Ok(parse_attrs(span, conf, attrs)?)
+        Ok(parse_attrs(span, conf, attrs, true)?)
     }
 }
 
@@ -205,6 +219,28 @@ impl VisibilityConf {
     }
 }
 
+impl SortTypeConf {
+    pub(crate) fn parse_from_input(
+        input: Option<&str>,
+        span: proc_macro2::Span,
+    ) -> ParseResult<Option<Self>> {
+        let choice = match input {
+            None => None,
+            Some("asc") => Some(SortTypeConf::Ascending),
+            Some("desc") => Some(SortTypeConf::Descending),
+            _ => return Err(SynError::new(span, "unreachable result")),
+        };
+        Ok(choice)
+    }
+
+    pub(crate) fn is_ascending(&self) -> bool {
+        match *self {
+            SortTypeConf::Ascending => true,
+            SortTypeConf::Descending => false,
+        }
+    }
+}
+
 impl MethodNameConf {
     pub(crate) fn parse_from_input(
         namevalue_params: &::std::collections::HashMap<&str, String>,
@@ -259,6 +295,67 @@ impl MethodNameConf {
     }
 }
 
+impl OrdFieldConf {
+    pub(crate) fn parse_from_path_params<'a>(
+        path_params: &::std::collections::HashSet<&syn::Path>,
+        options: &[&'a str],
+        span: proc_macro2::Span,
+        is_field: bool,
+    ) -> ParseResult<(Option<&'a str>, Option<usize>)> {
+        let mut sort_type = None;
+        let mut number_opt = None;
+        for p in path_params.iter() {
+            match p
+                .get_ident()
+                .ok_or_else(|| SynError::new(p.span(), "this attribute should be a single ident"))?
+                .to_string()
+                .as_str()
+            {
+                t if options.iter().any(|opt| *opt == t) => {
+                    if sort_type.is_some() {
+                        return Err(SynError::new(p.span(), "this attribute has been set twice"));
+                    }
+                    for opt in options.iter() {
+                        if *opt == t {
+                            sort_type = Some(*opt);
+                            break;
+                        }
+                    }
+                }
+                n if &n.as_bytes()[..1] == b"_" => {
+                    if !is_field {
+                        return Err(SynError::new(
+                            p.span(),
+                            "the serial number could not be set as a container attribute",
+                        ));
+                    } else if let Ok(n) = n[1..].parse::<usize>() {
+                        if number_opt.is_some() {
+                            return Err(SynError::new(
+                                p.span(),
+                                "the serial number has been set twice",
+                            ));
+                        }
+                        number_opt = Some(n);
+                    } else {
+                        return Err(SynError::new(
+                            p.span(),
+                            "the serial number should be an unsigned number with a `_` prefix",
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(SynError::new(p.span(), "this attribute was unknown"));
+                }
+            }
+        }
+        if is_field && number_opt.is_none() {
+            Err(SynError::new(span, "no serial number was set"))
+        } else {
+            Ok((sort_type, number_opt))
+        }
+    }
+}
+
 impl ::std::default::Default for FieldConf {
     fn default() -> Self {
         Self {
@@ -285,12 +382,16 @@ impl ::std::default::Default for FieldConf {
                     suffix: "".to_owned(),
                 },
             },
+            ord: OrdFieldConf {
+                number: None,
+                sort_type: SortTypeConf::Ascending,
+            },
         }
     }
 }
 
 impl FieldConf {
-    fn apply_attrs(&mut self, meta: &syn::Meta) -> ParseResult<()> {
+    fn apply_attrs(&mut self, meta: &syn::Meta, is_field: bool) -> ParseResult<()> {
         match meta {
             syn::Meta::Path(path) => {
                 return Err(SynError::new(
@@ -419,6 +520,20 @@ impl FieldConf {
                             self.mut_.name = choice;
                         }
                     }
+                    "ord" => {
+                        let (sort_type_opt, number_opt) = OrdFieldConf::parse_from_path_params(
+                            &path_params,
+                            SORT_TYPE_OPTIONS,
+                            list.path.span(),
+                            is_field,
+                        )?;
+                        if let Some(choice) =
+                            SortTypeConf::parse_from_input(sort_type_opt, list.path.span())?
+                        {
+                            self.ord.sort_type = choice;
+                        }
+                        self.ord.number = number_opt;
+                    }
                     attr => {
                         return Err(SynError::new(
                             list.path.span(),
@@ -505,6 +620,7 @@ fn parse_attrs(
     span: proc_macro2::Span,
     mut conf: FieldConf,
     attrs: &[syn::Attribute],
+    is_field: bool,
 ) -> ParseResult<FieldConf> {
     for attr in attrs.iter() {
         if let syn::AttrStyle::Outer = attr.style {
@@ -531,7 +647,7 @@ fn parse_attrs(
                         for nested_meta in list.nested.iter() {
                             match nested_meta {
                                 syn::NestedMeta::Meta(meta) => {
-                                    conf.apply_attrs(meta)?;
+                                    conf.apply_attrs(meta, is_field)?;
                                 }
                                 syn::NestedMeta::Lit(lit) => {
                                     return Err(SynError::new(
