@@ -313,7 +313,10 @@ impl OrdFieldConf {
             {
                 t if options.iter().any(|opt| *opt == t) => {
                     if sort_type.is_some() {
-                        return Err(SynError::new(p.span(), "this attribute has been set twice"));
+                        return Err(SynError::new(
+                            p.span(),
+                            "this kind of attribute has been set twice",
+                        ));
                     }
                     for opt in options.iter() {
                         if *opt == t {
@@ -565,6 +568,12 @@ fn check_path_params<'a>(
             for opt in group.iter() {
                 if p.is_ident(opt) {
                     find = true;
+                    if result[i].is_some() {
+                        return Err(SynError::new(
+                            p.span(),
+                            "this kind of attribute has been set twice",
+                        ));
+                    }
                     result[i] = Some(*opt);
                     break;
                 }
