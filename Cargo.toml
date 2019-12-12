@@ -1,6 +1,6 @@
 [package]
 name = "property"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Boyu Yang <yangby@cryptape.com>"]
 edition = "2018"
 description = "Generate several common methods for structs automatically."
@@ -9,6 +9,8 @@ repository = "https://github.com/yangby-cryptape/rust-property"
 keywords = ["getter", "setter", "accessor", "mutator"]
 categories = ["development-tools"]
 license = "Apache-2.0 OR MIT"
+readme = "README.md"
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE-*"]
 
 [lib]
 proc-macro = true
