@@ -31,7 +31,7 @@ pub fn derive_property(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
         });
         let impl_methods = quote!(
             impl #impl_generics #name #type_generics #where_clause_opt {
-                #(#[inline(always)] #methods)*
+                #(#[inline] #methods)*
             }
         );
         if let Some(impl_traits) = implement_traits(&property) {
