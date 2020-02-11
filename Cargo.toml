@@ -1,6 +1,6 @@
 [package]
 name = "property"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Boyu Yang <yangby@cryptape.com>"]
 edition = "2018"
 description = "Generate several common methods for structs automatically."
