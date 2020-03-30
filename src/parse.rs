@@ -7,7 +7,7 @@
 // except according to those terms.
 
 use quote::quote;
-use syn::{parse::Result as ParseResult, spanned::Spanned, Error as SynError};
+use syn::{parse::Result as ParseResult, spanned::Spanned as _, Error as SynError};
 
 const ATTR_NAME: &str = "property";
 
@@ -102,7 +102,7 @@ pub(crate) struct FieldConf {
 impl syn::parse::Parse for PropertyDef {
     fn parse(input: syn::parse::ParseStream) -> ParseResult<Self> {
         let derive_input: syn::DeriveInput = input.parse()?;
-        let span = derive_input.span();
+        let attrs_span = derive_input.span();
         let syn::DeriveInput {
             attrs,
             ident,
@@ -110,12 +110,21 @@ impl syn::parse::Parse for PropertyDef {
             data,
             ..
         } = derive_input;
-        let conf = Self::parse_attrs(span, &attrs[..])?;
-        Ok(Self {
-            name: ident,
-            generics,
-            fields: FieldDef::parse_data(data, conf, span)?,
-        })
+        let ident_span = ident.span();
+        match data {
+            syn::Data::Struct(data) => match data.fields {
+                syn::Fields::Named(named_fields) => {
+                    let conf = Self::parse_attrs(attrs_span, &attrs[..])?;
+                    Ok(Self {
+                        name: ident,
+                        generics,
+                        fields: FieldDef::parse_named_fields(named_fields, conf, ident_span)?,
+                    })
+                }
+                _ => Err(SynError::new(ident_span, "only support named fields")),
+            },
+            _ => Err(SynError::new(ident_span, "only support structs")),
+        }
     }
 }
 
@@ -126,30 +135,25 @@ impl PropertyDef {
 }
 
 impl FieldDef {
-    fn parse_data(
-        data: syn::Data,
+    fn parse_named_fields(
+        named_fields: syn::FieldsNamed,
         conf: FieldConf,
         span: proc_macro2::Span,
     ) -> ParseResult<Vec<Self>> {
-        match data {
-            syn::Data::Struct(data) => {
-                let mut fields = Vec::new();
-                for f in data.fields.into_iter() {
-                    let syn::Field {
-                        attrs, ident, ty, ..
-                    } = f.clone();
-                    let conf = Self::parse_attrs(f.span(), conf.clone(), &attrs[..])?;
-                    let ident =
-                        ident.ok_or_else(|| SynError::new(f.span(), "only support named field"))?;
-                    let field = Self { ident, ty, conf };
-                    fields.push(field);
-                }
-                Ok(fields)
-            }
-            _ => Err(SynError::new(
-                span,
-                "`#[derive(Property)]` only support structs",
-            )),
+        let mut fields = Vec::new();
+        for f in named_fields.named.into_iter() {
+            let syn::Field {
+                attrs, ident, ty, ..
+            } = f.clone();
+            let conf = Self::parse_attrs(f.span(), conf.clone(), &attrs[..])?;
+            let ident = ident.ok_or_else(|| SynError::new(f.span(), "unreachable"))?;
+            let field = Self { ident, ty, conf };
+            fields.push(field);
+        }
+        if fields.is_empty() {
+            Err(SynError::new(span, "nothing can do for an empty struct"))
+        } else {
+            Ok(fields)
         }
     }
 
