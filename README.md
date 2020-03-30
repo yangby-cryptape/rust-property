@@ -62,6 +62,12 @@ Generate several common methods for structs automatically.
 ### Original Code
 
 ```rust
+#![no_std]
+
+extern crate alloc;
+
+use alloc::{string::String, vec::Vec};
+
 use property::Property;
 
 #[derive(Copy, Clone)]

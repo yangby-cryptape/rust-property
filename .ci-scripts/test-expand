@@ -44,14 +44,14 @@ function main () {
 
     echo "Generate the Cargo.toml."
     cat >> "${crate_name}/Cargo.toml" << EOF
-    [package]
-    name = "${crate_name}"
-    version = "0.1.0"
-    authors = ["Boyu Yang <yangby@cryptape.com>"]
-    edition = "2018"
+[package]
+name = "${crate_name}"
+version = "0.1.0"
+authors = ["Boyu Yang <yangby@cryptape.com>"]
+edition = "2018"
 
-    [dependencies]
-    property = { path = ".." }
+[dependencies]
+property = { path = ".." }
 EOF
 
     echo "Expand the macro for the demo."
