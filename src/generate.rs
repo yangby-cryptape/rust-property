@@ -6,7 +6,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use quote::quote;
+use syn::{punctuated::Punctuated, token::Comma, GenericArgument};
 
 pub(crate) enum GetType {
     Ref,
@@ -14,7 +14,7 @@ pub(crate) enum GetType {
     Clone_,
     String_,
     Slice(syn::TypeSlice),
-    Option_(proc_macro2::TokenStream),
+    Option_(Punctuated<GenericArgument, Comma>),
 }
 
 pub(crate) enum FieldType {
@@ -24,7 +24,7 @@ pub(crate) enum FieldType {
     String_,
     Array(syn::TypeArray),
     Vector(syn::Type),
-    Option_(proc_macro2::TokenStream),
+    Option_(Punctuated<GenericArgument, Comma>),
     Unhandled,
 }
 
@@ -48,7 +48,18 @@ impl GetType {
                 bracket_token: syn::token::Bracket::default(),
                 elem: Box::new(inner_type.clone()),
             }),
-            FieldType::Option_(inner_type) => Self::Option_(inner_type.clone()),
+            FieldType::Option_(inner_type) => {
+                if inner_type.len() == 1 {
+                    if let Some(syn::GenericArgument::Type(inner_type)) = inner_type.first() {
+                        if let Self::Copy_ =
+                            GetType::from_field_type(&FieldType::from_type(inner_type))
+                        {
+                            return Self::Copy_;
+                        }
+                    }
+                }
+                Self::Option_(inner_type.clone())
+            }
             FieldType::Unhandled => Self::Ref,
         }
     }
@@ -84,8 +95,7 @@ impl FieldType {
                             if let syn::PathArguments::AngleBracketed(inner) =
                                 &type_path.path.segments[0].arguments
                             {
-                                let args = &inner.args;
-                                Self::Option_(quote!(#args))
+                                Self::Option_(inner.args.clone())
                             } else {
                                 unreachable!()
                             }

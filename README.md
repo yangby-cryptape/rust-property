@@ -103,6 +103,7 @@ pub struct Pet {
     note: Option<String>,
     #[property(skip)]
     map: Vec<i32>,
+    salary: Option<u32>,
 }
 ```
 
@@ -196,6 +197,15 @@ impl Pet {
     #[inline]
     pub fn note_mut(&mut self) -> &mut Option<String> {
         &mut self.note
+    }
+    #[inline]
+    pub fn salary(&self) -> Option<u32> {
+        self.salary
+    }
+    #[inline]
+    fn set_salary<T: Into<Option<u32>>>(&mut self, val: T) -> &mut Self {
+        self.salary = val.into();
+        self
     }
 }
 impl PartialEq for Pet {
