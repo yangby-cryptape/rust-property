@@ -10,7 +10,7 @@ use quote::quote;
 use syn::{parse::Result as ParseResult, spanned::Spanned as _, Error as SynError};
 
 const ATTR_NAME: &str = "property";
-
+const SKIP: &str = "skip";
 const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "copy", "clone"]));
 const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "own"]));
 const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
@@ -97,6 +97,7 @@ pub(crate) struct FieldConf {
     pub(crate) set: SetFieldConf,
     pub(crate) mut_: MutFieldConf,
     pub(crate) ord: OrdFieldConf,
+    pub(crate) skip: bool,
 }
 
 impl syn::parse::Parse for PropertyDef {
@@ -393,6 +394,7 @@ impl ::std::default::Default for FieldConf {
                 number: None,
                 sort_type: SortTypeConf::Ascending,
             },
+            skip: false,
         }
     }
 }
@@ -401,10 +403,14 @@ impl FieldConf {
     fn apply_attrs(&mut self, meta: &syn::Meta, is_field: bool) -> ParseResult<()> {
         match meta {
             syn::Meta::Path(path) => {
-                return Err(SynError::new(
-                    path.span(),
-                    "this attribute should not be a path",
-                ));
+                if path.is_ident(SKIP) {
+                    self.skip = true;
+                } else {
+                    return Err(SynError::new(
+                        path.span(),
+                        "this attribute should not be a path",
+                    ));
+                }
             }
             syn::Meta::List(list) => {
                 let mut path_params = ::std::collections::HashSet::new();
