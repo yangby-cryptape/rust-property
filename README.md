@@ -99,6 +99,8 @@ pub struct Pet {
     note: Option<String>,
     #[property(skip)]
     map: Vec<i32>,
+    #[property(set(noret))]
+    just_set: i32,
 }
 ```
 
@@ -192,6 +194,15 @@ impl Pet {
     #[inline]
     pub fn note_mut(&mut self) -> &mut Option<String> {
         &mut self.note
+    }
+    #[inline]
+    pub fn just_set(&self) -> i32 {
+        self.just_set
+    }
+    #[inline]
+    fn set_just_set<T: Into<i32>>(&mut self, val: T) -> () {
+        self.just_set = val.into();
+        ()
     }
 }
 impl PartialEq for Pet {

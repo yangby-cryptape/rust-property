@@ -13,6 +13,7 @@ const ATTR_NAME: &str = "property";
 const SKIP: &str = "skip";
 const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "copy", "clone"]));
 const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "own"]));
+const SET_NORET: &str = "noret";
 const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
 const PREFIX_OPTION: (&str, Option<&[&str]>) = ("prefix", None);
 const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
@@ -77,6 +78,7 @@ pub(crate) struct SetFieldConf {
     pub(crate) vis: VisibilityConf,
     pub(crate) name: MethodNameConf,
     pub(crate) typ: SetTypeConf,
+    pub(crate) noret: bool,
 }
 
 #[derive(Clone)]
@@ -382,6 +384,7 @@ impl ::std::default::Default for FieldConf {
                     suffix: "".to_owned(),
                 },
                 typ: SetTypeConf::Ref,
+                noret: false,
             },
             mut_: MutFieldConf {
                 vis: VisibilityConf::Crate,
@@ -495,7 +498,8 @@ impl FieldConf {
                         }
                     }
                     "set" => {
-                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;
+                        let paths =
+                            check_path_params(&path_params, &[VISIBILITY_OPTIONS, &[SET_NORET]])?;
                         let namevalues = check_namevalue_params(
                             &namevalue_params,
                             &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
@@ -514,6 +518,9 @@ impl FieldConf {
                             SetTypeConf::parse_from_input(&namevalues, list.path.span())?
                         {
                             self.set.typ = choice;
+                        }
+                        if Some(&Some(SET_NORET)) == paths.get(1) {
+                            self.set.noret = true;
                         }
                     }
                     "mut" => {
