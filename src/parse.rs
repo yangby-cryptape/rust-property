@@ -404,12 +404,16 @@ impl FieldConf {
         match meta {
             syn::Meta::Path(path) => {
                 if path.is_ident(SKIP) {
-                    self.skip = true;
+                    if is_field {
+                        self.skip = true;
+                    } else {
+                        return Err(SynError::new(
+                            path.span(),
+                            "don't derive it, rather than use skip as a container attribute",
+                        ));
+                    }
                 } else {
-                    return Err(SynError::new(
-                        path.span(),
-                        "this attribute should not be a path",
-                    ));
+                    return Err(SynError::new(path.span(), "this attribute was unknown"));
                 }
             }
             syn::Meta::List(list) => {
@@ -445,7 +449,7 @@ impl FieldConf {
                             _ => {
                                 return Err(SynError::new(
                                     meta.span(),
-                                    "this attribute should be a path",
+                                    "this attribute should be a path or a name-value pair",
                                 ));
                             }
                         },

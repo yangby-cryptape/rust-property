@@ -43,7 +43,7 @@ function main () {
         > "${crate_name}/expected.tmp"
 
     echo "Generate the Cargo.toml."
-    cat >> "${crate_name}/Cargo.toml" << EOF
+    cat > "${crate_name}/Cargo.toml" << EOF
 [package]
 name = "${crate_name}"
 version = "0.1.0"

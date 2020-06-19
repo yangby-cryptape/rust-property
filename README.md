@@ -16,11 +16,15 @@ Generate several common methods for structs automatically.
 
 - Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
 
-  There are four kinds of configurable attributes: `get`, `set`, `mut` and `ord`.
+  There are five kinds of configurable attributes: `skip`, `get`, `set`, `mut` and `ord`.
 
 - Set container attributes can change the default settings for all fields.
 
 - Change the settings of a single field via setting field attributes.
+
+- If the `skip` attribute is set, no methods will be generated.
+
+  Don't set `skip` attribute as a container attribute.
 
 - The visibility of a method can be set via `#[property(get(visibility-type))]`
 
