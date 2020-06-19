@@ -97,6 +97,8 @@ pub struct Pet {
     info: String,
     #[property(mut(public, suffix = "_mut"))]
     note: Option<String>,
+    #[property(skip)]
+    map: Vec<i32>,
 }
 ```
 

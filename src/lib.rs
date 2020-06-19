@@ -26,7 +26,9 @@ pub fn derive_property(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
         let name = &property.name;
         let (impl_generics, type_generics, where_clause_opt) = property.generics.split_for_impl();
         let methods = property.fields.iter().fold(Vec::new(), |mut r, f| {
-            r.append(&mut derive_property_for_field(f));
+            if !f.conf.skip {
+                r.append(&mut derive_property_for_field(f));
+            }
             r
         });
         let impl_methods = quote!(
