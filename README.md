@@ -42,9 +42,15 @@ Generate several common methods for structs automatically.
 
   There are three kinds of the return types: `ref` (default in most cases), `clone` and `copy`.
 
-- The input type of `set` method can be set via `#[property(set(type = "input-type"))]`.
+- The input type and return type of `set` method can be set via `#[property(set(type = "set-type"))]`.
 
-  There are two kinds of the input types: `ref` (default) and `own`.
+  There are three kinds of the input types: `ref` (default), `own` and `none`:
+
+  - `ref`: input is a mutable reference and return is the mutable reference too.
+
+  - `own`: input is a owned object and return is the owned object too.
+
+  - `none`: input is a mutable reference and no return.
 
 - If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
@@ -94,7 +100,7 @@ pub struct Pet {
     species: Species,
     #[property(get(prefix = "is_"), ord(_1))]
     died: bool,
-    #[property(get(type = "clone"))]
+    #[property(get(type = "clone"), set(type = "none"))]
     owner: String,
     family_members: Vec<String>,
     #[property(get(type = "ref"), mut(crate))]
@@ -156,9 +162,8 @@ impl Pet {
         self.owner.clone()
     }
     #[inline]
-    fn set_owner<T: Into<String>>(&mut self, val: T) -> &mut Self {
+    fn set_owner<T: Into<String>>(&mut self, val: T) {
         self.owner = val.into();
-        self
     }
     #[inline]
     pub fn family_members(&self) -> &[String] {
