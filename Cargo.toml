@@ -1,6 +1,6 @@
 [package]
 name = "property"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Boyu Yang <yangby@cryptape.com>"]
 edition = "2018"
 description = "Generate several common methods for structs automatically."
@@ -10,7 +10,7 @@ keywords = ["getter", "setter", "accessor", "mutator"]
 categories = ["development-tools::procedural-macro-helpers"]
 license = "Apache-2.0 OR MIT"
 readme = "README.md"
-include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE-*"]
+include = ["src/**/*.rs", "README.md", "LICENSE-*"]
 
 [lib]
 proc-macro = true
