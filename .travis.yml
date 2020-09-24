@@ -1,9 +1,8 @@
 language: rust
-os:
-  - linux
-  - osx
-  - windows
+os: linux
+dist: focal
 rust:
+  - 1.46.0
   - stable
   - beta
   - nightly
@@ -11,23 +10,6 @@ env:
   global:
     - RUSTFLAGS='-F warnings'
     - RUST_BACKTRACE=full
-matrix:
-  exclude:
-    - os: osx
-      rust: beta
-    - os: osx
-      rust: nightly
-    - os: windows
-      rust: beta
-    - os: windows
-      rust: nightly
-  allow_failures:
-    - rust: beta
-    - rust: nightly
-  fast_finish: true
-script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
 stages:
   - Check
   - Test
@@ -35,19 +17,28 @@ jobs:
   include:
     - stage: Check
       name: Format
-      script:
-        - rustup component add rustfmt
-        - cargo fmt --all -- --check
+      install: cargo fmt --version || rustup component add rustfmt
+      script: cargo fmt --all -- --check
     - stage: Check
       name: Clippy
-      script:
-        - rustup component add clippy
-        - cargo clippy -- --deny warnings
+      install: cargo clippy --version || rustup component add clippy
+      script: cargo clippy -- --deny warnings
     - stage: Check
       name: Expand
-      script:
-        - rustup component add rustfmt
-        - rustup component add clippy
+      install:
+        - cargo fmt --version || rustup component add rustfmt
+        - cargo clippy --version || rustup component add clippy
         - cargo install cargo-expand
         - rustup install nightly
-        - .ci-scripts/test-expand
+      script: .ci-scripts/test-expand
+    - stage: Test
+      os: osx
+    - stage: Test
+      os: windows
+  allow_failures:
+    - rust: beta
+    - rust: nightly
+  fast_finish: true
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
