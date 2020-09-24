@@ -1,0 +1,20 @@
+name: Bors
+on:
+  pull_request_review:
+    types: [submitted]
+jobs:
+  auto-merge:
+    if: ${{ github.event.review.state == 'approved' }}
+    name: Auto Merge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.TOKEN_ACTIONS_BOT }}
+          script: |
+            github.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: 'bors merge'
+            })
