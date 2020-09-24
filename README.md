@@ -44,13 +44,15 @@ Generate several common methods for structs automatically.
 
 - The input type and return type of `set` method can be set via `#[property(set(type = "set-type"))]`.
 
-  There are three kinds of the input types: `ref` (default), `own` and `none`:
+  There are four kinds of the input types: `ref` (default), `own`, `none` and `replace`:
 
   - `ref`: input is a mutable reference and return is the mutable reference too.
 
   - `own`: input is a owned object and return is the owned object too.
 
   - `none`: input is a mutable reference and no return.
+
+  - `replace`: input is a mutable reference and return the old value.
 
 - If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
@@ -105,11 +107,14 @@ pub struct Pet {
     family_members: Vec<String>,
     #[property(get(type = "ref"), mut(crate))]
     info: String,
+    #[property(get(disable), set(type = "replace"))]
+    pub tag: Vec<String>,
     #[property(mut(public, suffix = "_mut"))]
     note: Option<String>,
+    #[property(set(type = "replace"))]
+    price: Option<u32>,
     #[property(skip)]
-    pub map: Vec<i32>,
-    salary: Option<u32>,
+    pub reserved: String,
 }
 ```
 
@@ -191,6 +196,10 @@ impl Pet {
         &mut self.info
     }
     #[inline]
+    fn set_tag<T: Into<String>>(&mut self, val: impl IntoIterator<Item = T>) -> Vec<String> {
+        ::core::mem::replace(&mut self.tag, val.into_iter().map(Into::into).collect())
+    }
+    #[inline]
     pub fn note(&self) -> Option<&String> {
         self.note.as_ref()
     }
@@ -204,13 +213,12 @@ impl Pet {
         &mut self.note
     }
     #[inline]
-    pub fn salary(&self) -> Option<u32> {
-        self.salary
+    pub fn price(&self) -> Option<u32> {
+        self.price
     }
     #[inline]
-    fn set_salary<T: Into<Option<u32>>>(&mut self, val: T) -> &mut Self {
-        self.salary = val.into();
-        self
+    fn set_price<T: Into<Option<u32>>>(&mut self, val: T) -> Option<u32> {
+        ::core::mem::replace(&mut self.price, val.into())
     }
 }
 impl PartialEq for Pet {

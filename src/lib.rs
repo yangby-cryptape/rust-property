@@ -185,6 +185,14 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                         self.#field_name = val.into_iter().map(Into::into).collect();
                     }
                 ),
+                SetTypeConf::Replace => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                       &mut self,
+                       val: impl IntoIterator<Item = T>
+                    ) -> #field_type {
+                        ::core::mem::replace(&mut self.#field_name, val.into_iter().map(Into::into).collect())
+                    }
+                ),
             },
             _ => match field_conf.set.typ {
                 SetTypeConf::Ref => quote!(
@@ -208,6 +216,13 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                         &mut self, val: T
                     ) {
                         self.#field_name = val.into();
+                    }
+                ),
+                SetTypeConf::Replace => quote!(
+                    #visibility fn #method_name<T: Into<#field_type>>(
+                        &mut self, val: T
+                    ) -> #field_type {
+                        ::core::mem::replace(&mut self.#field_name, val.into())
                     }
                 ),
             },

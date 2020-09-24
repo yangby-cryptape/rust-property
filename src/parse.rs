@@ -12,7 +12,8 @@ use syn::{parse::Result as ParseResult, spanned::Spanned as _, Error as SynError
 const ATTR_NAME: &str = "property";
 const SKIP: &str = "skip";
 const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "copy", "clone"]));
-const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "own", "none"]));
+const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) =
+    ("type", Some(&["ref", "own", "none", "replace"]));
 const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
 const PREFIX_OPTION: (&str, Option<&[&str]>) = ("prefix", None);
 const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
@@ -44,6 +45,7 @@ pub(crate) enum SetTypeConf {
     Ref,
     Own,
     None_,
+    Replace,
 }
 
 #[derive(Clone, Copy)]
@@ -194,6 +196,7 @@ impl SetTypeConf {
             Some("ref") => Some(Self::Ref),
             Some("own") => Some(Self::Own),
             Some("none") => Some(Self::None_),
+            Some("replace") => Some(Self::Replace),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
