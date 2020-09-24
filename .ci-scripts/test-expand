@@ -54,8 +54,12 @@ edition = "2018"
 property = { path = ".." }
 EOF
 
-    echo "Expand the macro for the demo."
     cd "${crate_name}"
+
+    echo "Check the generated code via Clippy."
+    cargo clippy -- -D warnings
+
+    echo "Expand the macro for the demo."
     cargo expand 2>/dev/null \
         | rustfmt --emit stdout \
         > result-full.tmp
@@ -68,6 +72,7 @@ EOF
     cat result-full.tmp \
         | sed -n '/^impl PartialOrd for Pet {$/,/^}$/p' \
         >> result.tmp
+
     cd ..
 
     echo "Do the test."

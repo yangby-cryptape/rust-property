@@ -42,11 +42,12 @@ jobs:
       name: Clippy
       script:
         - rustup component add clippy
-        - cargo clippy --all --all-targets --all-features
+        - cargo clippy -- --deny warnings
     - stage: Check
       name: Expand
       script:
         - rustup component add rustfmt
+        - rustup component add clippy
         - cargo install cargo-expand
         - rustup install nightly
         - .ci-scripts/test-expand

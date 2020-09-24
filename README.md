@@ -108,7 +108,7 @@ pub struct Pet {
     #[property(mut(public, suffix = "_mut"))]
     note: Option<String>,
     #[property(skip)]
-    map: Vec<i32>,
+    pub map: Vec<i32>,
     salary: Option<u32>,
 }
 ```

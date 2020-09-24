@@ -112,7 +112,7 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
     let field_name = &field.ident;
     let field_conf = &field.conf;
     let prop_field_type = FieldType::from_type(field_type);
-    if let Some(ts) = field_conf.get.vis.to_ts().and_then(|visibility| {
+    if let Some(ts) = field_conf.get.vis.to_ts().map(|visibility| {
         let method_name = field_conf.get.name.complete(field_name);
         let get_type = match field_conf.get.typ {
             GetTypeConf::NotSet => GetType::from_field_type(&prop_field_type),
@@ -120,7 +120,7 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
             GetTypeConf::Copy_ => GetType::Copy_,
             GetTypeConf::Clone_ => GetType::Clone_,
         };
-        let generated = match get_type {
+        match get_type {
             GetType::Ref => quote!(
                 #visibility fn #method_name(&self) -> &#field_type {
                     &self.#field_name
@@ -151,14 +151,13 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                     self.#field_name.as_ref()
                 }
             ),
-        };
-        Some(generated)
+        }
     }) {
         property.push(ts);
     }
-    if let Some(ts) = field_conf.set.vis.to_ts().and_then(|visibility| {
+    if let Some(ts) = field_conf.set.vis.to_ts().map(|visibility| {
         let method_name = field_conf.set.name.complete(field_name);
-        let generated = match prop_field_type {
+        match prop_field_type {
             FieldType::Vector(inner_type) => match field_conf.set.typ {
                 SetTypeConf::Ref => quote!(
                     #visibility fn #method_name<T: Into<#inner_type>>(
@@ -212,19 +211,17 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                     }
                 ),
             },
-        };
-        Some(generated)
+        }
     }) {
         property.push(ts);
     }
-    if let Some(ts) = field_conf.mut_.vis.to_ts().and_then(|visibility| {
+    if let Some(ts) = field_conf.mut_.vis.to_ts().map(|visibility| {
         let method_name = field_conf.mut_.name.complete(field_name);
-        let generated = quote!(
+        quote!(
             #visibility fn #method_name(&mut self) -> &mut #field_type {
                 &mut self.#field_name
             }
-        );
-        Some(generated)
+        )
     }) {
         property.push(ts);
     }
