@@ -10,6 +10,12 @@ env:
   global:
     - RUSTFLAGS='-F warnings'
     - RUST_BACKTRACE=full
+branches:
+  only:
+    - staging
+    - trying
+    - master
+    - develop
 stages:
   - Check
   - Test
