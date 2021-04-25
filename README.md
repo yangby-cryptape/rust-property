@@ -54,6 +54,8 @@ Generate several common methods for structs automatically.
 
   - `replace`: input is a mutable reference and return the old value.
 
+- ``#[property(set(strip_option))]` accepts `T` as property value instead of `Option<T>`
+
 - If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
   - A serial number is required for the `ord` field attribute, it's an unsigned number with a `_` prefix.
@@ -109,7 +111,7 @@ pub struct Pet {
     info: String,
     #[property(get(disable), set(type = "replace"))]
     pub tag: Vec<String>,
-    #[property(mut(public, suffix = "_mut"))]
+    #[property(mut(public, suffix = "_mut"), set(strip_option))]
     note: Option<String>,
     #[property(set(type = "replace"))]
     price: Option<u32>,
@@ -204,8 +206,8 @@ impl Pet {
         self.note.as_ref()
     }
     #[inline]
-    fn set_note<T: Into<Option<String>>>(&mut self, val: T) -> &mut Self {
-        self.note = val.into();
+    fn set_note<T: Into<String>>(&mut self, val: T) -> &mut Self {
+        self.note = Some(val.into());
         self
     }
     #[inline]
