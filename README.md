@@ -54,7 +54,7 @@ Generate several common methods for structs automatically.
 
   - `replace`: input is a mutable reference and return the old value.
 
-- ``#[property(set(strip_option))]` accepts `T` as property value instead of `Option<T>`
+- `#[property(set(strip_option))]` accepts `T` as property value instead of `Option<T>`
 
 - If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
