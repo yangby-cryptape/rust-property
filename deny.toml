@@ -1,0 +1,24 @@
+[advisories]
+vulnerability = "deny"
+unmaintained = "deny"
+yanked = "deny"
+notice = "deny"
+ignore = []
+[licenses]
+unlicensed = "deny"
+allow = [
+    "Apache-2.0",
+    "MIT",
+]
+copyleft = "deny"
+allow-osi-fsf-free = "neither"
+default = "deny"
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow = [
+]
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

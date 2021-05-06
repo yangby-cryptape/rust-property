@@ -40,9 +40,28 @@ jobs:
           components: clippy
       - name: Run
         run: cargo clippy -- --deny warnings
+  cargo-deny:
+    name: Checks / Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: CacheKey (cargo-deny)
+        id: cache-key
+        run: echo "::set-output name=yyyymm::$(/bin/date -u "+%Y%m")"
+      - name: Cache (cargo-deny)
+        id: cache-cargo-deny
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: ${{ runner.os }}-${{ steps.cache-key.outputs.yyyymm }}
+      - name: Setup (cargo-deny)
+        if: steps.cache-cargo-deny.outputs.cache-hit != 'true'
+        run: cargo deny --version || cargo install cargo-deny --locked
+      - name: Run
+        run: cargo deny check --hide-inclusion-graph --show-stats
   test:
     name: Tests / Build & Test
-    needs: [ rustfmt, clippy ]
+    needs: [ rustfmt, clippy, cargo-deny ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
