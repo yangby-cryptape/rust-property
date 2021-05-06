@@ -1,15 +1,14 @@
 status = [
-    "Travis CI - Branch"
+    "Success"
 ]
 pr_status = [
-    "Travis CI - Pull Request"
+    "Success"
 ]
 block_labels = [
     "do-not-merge"
 ]
 timeout_sec = 1800
 required_approvals = 1
-delete_merged_branches = true
 use_codeowners = false
 use_squash_merge = false
 [committer]

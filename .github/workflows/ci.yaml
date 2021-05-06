@@ -1,0 +1,94 @@
+name: CI
+on:
+  push:
+    branches: [ master, develop, staging, trying ]
+  pull_request:
+    branches: [ master ]
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -F warnings
+  RUST_BACKTRACE: full
+jobs:
+  rustfmt:
+    name: Checks / Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.46.0
+          override: true
+          components: rustfmt
+      - name: Run
+        run: cargo fmt --all -- --check
+  clippy:
+    name: Checks / Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.46.0
+          override: true
+          components: clippy
+      - name: Run
+        run: cargo clippy -- --deny warnings
+  test:
+    name: Tests / Build & Test
+    needs: [ rustfmt, clippy ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: 1.46.0
+      fail-fast: true
+      max-parallel: 3
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup (stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+      - name: CacheKey (cargo-expand)
+        id: cache-key
+        run: echo "::set-output name=yyyymm::$(/bin/date -u "+%Y%m")"
+      - name: Cache (cargo-expand)
+        id: cache-cargo-expand
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/bin/cargo-expand
+          key: ${{ runner.os }}-${{ steps.cache-key.outputs.yyyymm }}
+      - name: Setup (cargo-expand)
+        if: steps.cache-cargo-expand.outputs.cache-hit != 'true'
+        run: cargo expand --version || cargo install cargo-expand --locked
+      - name: Setup (nightly)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+      - name: Build
+        run: cargo build --verbose --all
+      - name: Test
+        run: cargo test --verbose --all
+      - name: Test Expand
+        run: .ci-scripts/test-expand
+  success:
+    name: Success
+    if: ${{ success() }}
+    needs: [ test ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Succeed
+        run: exit 0
