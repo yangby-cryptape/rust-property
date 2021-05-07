@@ -7,7 +7,7 @@
 // except according to those terms.
 
 use quote::quote;
-use syn::{parse::Result as ParseResult, spanned::Spanned as _, Error as SynError};
+use syn::{parse::Result as ParseResult, spanned::Spanned, Error as SynError};
 
 const ATTR_NAME: &str = "property";
 const SKIP: &str = "skip";
@@ -118,7 +118,7 @@ impl syn::parse::Parse for PropertyDef {
         match data {
             syn::Data::Struct(data) => match data.fields {
                 syn::Fields::Named(named_fields) => {
-                    let conf = Self::parse_attrs(attrs_span, &attrs[..])?;
+                    let conf = PropertyDef::parse_attrs(attrs_span, &attrs[..])?;
                     Ok(Self {
                         name: ident,
                         generics,
@@ -149,7 +149,7 @@ impl FieldDef {
             let syn::Field {
                 attrs, ident, ty, ..
             } = f.clone();
-            let conf = Self::parse_attrs(f.span(), conf.clone(), &attrs[..])?;
+            let conf = FieldDef::parse_attrs(f.span(), conf.clone(), &attrs[..])?;
             let ident = ident.ok_or_else(|| SynError::new(f.span(), "unreachable"))?;
             let field = Self { ident, ty, conf };
             fields.push(field);
@@ -177,9 +177,9 @@ impl GetTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
             None => None,
-            Some("ref") => Some(Self::Ref),
-            Some("copy") => Some(Self::Copy_),
-            Some("clone") => Some(Self::Clone_),
+            Some("ref") => Some(GetTypeConf::Ref),
+            Some("copy") => Some(GetTypeConf::Copy_),
+            Some("clone") => Some(GetTypeConf::Clone_),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -193,10 +193,10 @@ impl SetTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
             None => None,
-            Some("ref") => Some(Self::Ref),
-            Some("own") => Some(Self::Own),
-            Some("none") => Some(Self::None_),
-            Some("replace") => Some(Self::Replace),
+            Some("ref") => Some(SetTypeConf::Ref),
+            Some("own") => Some(SetTypeConf::Own),
+            Some("none") => Some(SetTypeConf::None_),
+            Some("replace") => Some(SetTypeConf::Replace),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -210,10 +210,10 @@ impl VisibilityConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match input {
             None => None,
-            Some("disable") => Some(Self::Disable),
-            Some("public") => Some(Self::Public),
-            Some("crate") => Some(Self::Crate),
-            Some("private") => Some(Self::Private),
+            Some("disable") => Some(VisibilityConf::Disable),
+            Some("public") => Some(VisibilityConf::Public),
+            Some("crate") => Some(VisibilityConf::Crate),
+            Some("private") => Some(VisibilityConf::Private),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -221,10 +221,10 @@ impl VisibilityConf {
 
     pub(crate) fn to_ts(self) -> Option<proc_macro2::TokenStream> {
         match self {
-            Self::Disable => None,
-            Self::Public => Some(quote!(pub)),
-            Self::Crate => Some(quote!(pub(crate))),
-            Self::Private => Some(quote!()),
+            VisibilityConf::Disable => None,
+            VisibilityConf::Public => Some(quote!(pub)),
+            VisibilityConf::Crate => Some(quote!(pub(crate))),
+            VisibilityConf::Private => Some(quote!()),
         }
     }
 }
@@ -236,8 +236,8 @@ impl SortTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match input {
             None => None,
-            Some("asc") => Some(Self::Ascending),
-            Some("desc") => Some(Self::Descending),
+            Some("asc") => Some(SortTypeConf::Ascending),
+            Some("desc") => Some(SortTypeConf::Descending),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -245,8 +245,8 @@ impl SortTypeConf {
 
     pub(crate) fn is_ascending(self) -> bool {
         match self {
-            Self::Ascending => true,
-            Self::Descending => false,
+            SortTypeConf::Ascending => true,
+            SortTypeConf::Descending => false,
         }
     }
 }
@@ -275,16 +275,16 @@ impl MethodNameConf {
                     "do not set prefix or suffix if name was set",
                 ))
             } else {
-                Ok(Some(Self::Name(name)))
+                Ok(Some(MethodNameConf::Name(name)))
             }
         } else {
             let choice = match (prefix_opt, suffix_opt) {
-                (Some(prefix), Some(suffix)) => Some(Self::Format { prefix, suffix }),
-                (Some(prefix), None) => Some(Self::Format {
+                (Some(prefix), Some(suffix)) => Some(MethodNameConf::Format { prefix, suffix }),
+                (Some(prefix), None) => Some(MethodNameConf::Format {
                     prefix,
                     suffix: "".to_owned(),
                 }),
-                (None, Some(suffix)) => Some(Self::Format {
+                (None, Some(suffix)) => Some(MethodNameConf::Format {
                     prefix: "".to_owned(),
                     suffix,
                 }),
@@ -296,8 +296,8 @@ impl MethodNameConf {
 
     pub(crate) fn complete(&self, field_name: &syn::Ident) -> syn::Ident {
         let method_name = match self {
-            Self::Name(ref name) => name.to_owned(),
-            Self::Format { prefix, suffix } => {
+            MethodNameConf::Name(ref name) => name.to_owned(),
+            MethodNameConf::Format { prefix, suffix } => {
                 format!("{}{}{}", prefix, field_name.to_string(), suffix)
             }
         };
@@ -315,50 +315,45 @@ impl OrdFieldConf {
         let mut sort_type = None;
         let mut number_opt = None;
         for p in path_params.iter() {
-            match p
+            let s = p
                 .get_ident()
                 .ok_or_else(|| SynError::new(p.span(), "this attribute should be a single ident"))?
-                .to_string()
-                .as_str()
-            {
-                t if options.iter().any(|opt| *opt == t) => {
-                    if sort_type.is_some() {
-                        return Err(SynError::new(
-                            p.span(),
-                            "this kind of attribute has been set twice",
-                        ));
-                    }
-                    for opt in options.iter() {
-                        if *opt == t {
-                            sort_type = Some(*opt);
-                            break;
-                        }
+                .to_string();
+            if options.iter().any(|opt| *opt == s.as_str()) {
+                if sort_type.is_some() {
+                    return Err(SynError::new(
+                        p.span(),
+                        "this kind of attribute has been set twice",
+                    ));
+                }
+                for opt in options.iter() {
+                    if *opt == s.as_str() {
+                        sort_type = Some(*opt);
+                        break;
                     }
                 }
-                n if &n.as_bytes()[..1] == b"_" => {
-                    if !is_field {
+            } else if &s.as_bytes()[..1] == b"_" {
+                if !is_field {
+                    return Err(SynError::new(
+                        p.span(),
+                        "the serial number could not be set as a container attribute",
+                    ));
+                } else if let Ok(n) = s.as_str()[1..].parse::<usize>() {
+                    if number_opt.is_some() {
                         return Err(SynError::new(
                             p.span(),
-                            "the serial number could not be set as a container attribute",
-                        ));
-                    } else if let Ok(n) = n[1..].parse::<usize>() {
-                        if number_opt.is_some() {
-                            return Err(SynError::new(
-                                p.span(),
-                                "the serial number has been set twice",
-                            ));
-                        }
-                        number_opt = Some(n);
-                    } else {
-                        return Err(SynError::new(
-                            p.span(),
-                            "the serial number should be an unsigned number with a `_` prefix",
+                            "the serial number has been set twice",
                         ));
                     }
+                    number_opt = Some(n);
+                } else {
+                    return Err(SynError::new(
+                        p.span(),
+                        "the serial number should be an unsigned number with a `_` prefix",
+                    ));
                 }
-                _ => {
-                    return Err(SynError::new(p.span(), "this attribute was unknown"));
-                }
+            } else {
+                return Err(SynError::new(p.span(), "this attribute was unknown"));
             }
         }
         if is_field && number_opt.is_none() {

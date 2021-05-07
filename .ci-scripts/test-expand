@@ -27,6 +27,14 @@ function exit_func () {
 function main () {
     trap exit_func EXIT
 
+    local rustc_version="$(rustc --version | awk '{ print $2  }')"
+    local test_msrv=false
+    local cargo_args=
+    if [ "${rustc_version}" = "1.31.0" ]; then
+        test_msrv="true"
+        cargo_args="--features std"
+    fi
+
     cargo expand --version
 
     echo "Clean cache before run the test."
@@ -52,15 +60,21 @@ edition = "2018"
 
 [dependencies]
 property = { path = ".." }
+
+[features]
+default = []
+std = []
 EOF
 
     cd "${crate_name}"
 
-    echo "Check the generated code via Clippy."
-    cargo clippy -- -D warnings
+    if [ "${test_msrv}" != "true" ]; then
+        echo "Check the generated code via Clippy."
+        cargo clippy ${cargo_args} -- -D warnings
+    fi
 
     echo "Expand the macro for the demo."
-    cargo expand 2>/dev/null \
+    cargo expand ${cargo_args} 2>/dev/null \
         | rustfmt --emit stdout \
         > result-full.tmp
     cat result-full.tmp \

@@ -4,6 +4,7 @@
 [![GitHub Actions]](https://github.com/yangby-cryptape/rust-property/actions)
 [![Crate Badge]](https://crates.io/crates/property)
 [![Crate Doc]](https://docs.rs/property)
+[![MSRV 1.31.0]][Rust 1.31.0]
 
 Generate several common methods for structs automatically.
 
@@ -11,6 +12,7 @@ Generate several common methods for structs automatically.
 [GitHub Actions]: https://github.com/yangby-cryptape/rust-property/workflows/CI/badge.svg
 [Crate Badge]: https://img.shields.io/crates/v/property.svg
 [Crate Doc]: https://docs.rs/property/badge.svg
+[MSRV 1.31.0]: https://img.shields.io/badge/rust-%3E%3D%201.31.0-blue
 
 ## Usage
 
@@ -76,7 +78,11 @@ Generate several common methods for structs automatically.
 ```rust
 #![no_std]
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std as alloc;
 
 use alloc::{string::String, vec::Vec};
 
@@ -247,9 +253,14 @@ impl PartialOrd for Pet {
 
 Enjoy it!
 
+## Minimum Supported Rust Version
+
+[Rust 1.31.0].
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0] or [MIT License], at your option.
 
 [Apache License, Version 2.0]: LICENSE-APACHE
 [MIT License]: LICENSE-MIT
+[Rust 1.31.0]: https://blog.rust-lang.org/2018/12/06/Rust-1.31-and-rust-2018.html
