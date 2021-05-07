@@ -134,7 +134,7 @@ impl syn::parse::Parse for PropertyDef {
 
 impl PropertyDef {
     fn parse_attrs(span: proc_macro2::Span, attrs: &[syn::Attribute]) -> ParseResult<FieldConf> {
-        Ok(parse_attrs(span, Default::default(), attrs, false)?)
+        parse_attrs(span, Default::default(), attrs, false)
     }
 }
 
@@ -166,7 +166,7 @@ impl FieldDef {
         conf: FieldConf,
         attrs: &[syn::Attribute],
     ) -> ParseResult<FieldConf> {
-        Ok(parse_attrs(span, conf, attrs, true)?)
+        parse_attrs(span, conf, attrs, true)
     }
 }
 
@@ -256,18 +256,9 @@ impl MethodNameConf {
         namevalue_params: &::std::collections::HashMap<&str, String>,
         span: proc_macro2::Span,
     ) -> ParseResult<Option<Self>> {
-        let name_opt = match namevalue_params.get("name") {
-            None => None,
-            Some(input) => Some(input.to_owned()),
-        };
-        let prefix_opt = match namevalue_params.get("prefix") {
-            None => None,
-            Some(input) => Some(input.to_owned()),
-        };
-        let suffix_opt = match namevalue_params.get("suffix") {
-            None => None,
-            Some(input) => Some(input.to_owned()),
-        };
+        let name_opt = namevalue_params.get("name").map(ToOwned::to_owned);
+        let prefix_opt = namevalue_params.get("prefix").map(ToOwned::to_owned);
+        let suffix_opt = namevalue_params.get("suffix").map(ToOwned::to_owned);
         if let Some(name) = name_opt {
             if prefix_opt.is_some() || suffix_opt.is_some() {
                 Err(SynError::new(

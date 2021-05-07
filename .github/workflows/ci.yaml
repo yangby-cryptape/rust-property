@@ -9,7 +9,7 @@ defaults:
     shell: bash
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -F warnings
+  RUSTFLAGS: -D warnings
   RUST_BACKTRACE: full
 jobs:
   rustfmt:
@@ -21,7 +21,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.46.0
+          toolchain: 1.52.0
           override: true
           components: rustfmt
       - name: Run
@@ -35,7 +35,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.46.0
+          toolchain: 1.52.0
           override: true
           components: clippy
       - name: Run
@@ -68,7 +68,7 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.46.0  # Latest
+            rust: 1.52.0  # Latest
           - build: linux
             os: ubuntu-latest
             rust: 1.31.0  # MSRV
