@@ -39,7 +39,7 @@ Generate several common methods for structs automatically.
 
   ```rust
   #[property(
-      get(crate, prefix = "", suffix = "", type="not-set"),
+      get(crate, prefix = "", suffix = "", type="auto"),
       set(crate, prefix = "set_", type = "ref"),
       mut(crate, prefix = "mut_"),
       ord(asc)
@@ -62,7 +62,7 @@ Generate several common methods for structs automatically.
 
 - The return type of `get` method can be set via `#[property(get(type = "return-type"))]`.
 
-  There are three kinds of the return types: `ref` (default in most cases), `clone` and `copy`.
+  There are four kinds of the return types: `auto` (default), `ref`, `clone` and `copy`.
 
 - The input type and return type of `set` method can be set via `#[property(set(type = "set-type"))]`.
 

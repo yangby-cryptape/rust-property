@@ -16,7 +16,7 @@ use syn::{parse::Result as ParseResult, spanned::Spanned, Error as SynError};
 
 const ATTR_NAME: &str = "property";
 const SKIP: &str = "skip";
-const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["ref", "copy", "clone"]));
+const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["auto", "ref", "copy", "clone"]));
 const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) =
     ("type", Some(&["ref", "own", "none", "replace"]));
 const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
@@ -54,7 +54,7 @@ pub(crate) struct FieldDef {
 
 #[derive(Clone, Copy)]
 pub(crate) enum GetTypeConf {
-    NotSet,
+    Auto,
     Ref,
     Copy_,
     Clone_,
@@ -247,6 +247,7 @@ impl GetTypeConf {
     ) -> ParseResult<Option<Self>> {
         let choice = match namevalue_params.get("type").map(AsRef::as_ref) {
             None => None,
+            Some("auto") => Some(GetTypeConf::Auto),
             Some("ref") => Some(GetTypeConf::Ref),
             Some("copy") => Some(GetTypeConf::Copy_),
             Some("clone") => Some(GetTypeConf::Clone_),
@@ -434,7 +435,7 @@ impl ::std::default::Default for FieldConf {
                     prefix: "".to_owned(),
                     suffix: "".to_owned(),
                 },
-                typ: GetTypeConf::NotSet,
+                typ: GetTypeConf::Auto,
             },
             set: SetFieldConf {
                 vis: VisibilityConf::Crate,

@@ -168,7 +168,7 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
     if let Some(ts) = field_conf.get.vis.to_ts().map(|visibility| {
         let method_name = field_conf.get.name.complete(field_name);
         let get_type = match field_conf.get.typ {
-            GetTypeConf::NotSet => GetType::from_field_type(&prop_field_type),
+            GetTypeConf::Auto => GetType::from_field_type(&prop_field_type),
             GetTypeConf::Ref => GetType::Ref,
             GetTypeConf::Copy_ => GetType::Copy_,
             GetTypeConf::Clone_ => GetType::Clone_,
