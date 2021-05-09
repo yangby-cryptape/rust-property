@@ -16,38 +16,38 @@ Generate several common methods for structs automatically.
 
 ## Usage
 
-- Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
+Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
 
-  There are six kinds of configurable attributes: `skip`, `get`, `set`, `mut`, `clr` and `ord`.
+There are three levels of properties:
 
-- Set crate attributes can change the default settings for all fields in the whole crate.
+- Set crate properties can change the default settings for all containers (structs) in the whole crate.
 
-  Limited by the procedural macros, here we have to use a tricky way to set the crate attributes:
+  Limited by the procedural macros, here we have to use a tricky way to set the crate properties:
 
   ```rust
   #[property_default(get(..), set(..), ..)]
   struct PropertyCrateConf; // This struct is only used for introducing the attribute macro, and it will be removed in the macro.
   ```
 
-- Set container attributes can change the default settings for all fields in the container.
+- Set container properties can change the default properties for all fields in the container.
 
-- Change the settings of a single field via setting field attributes.
+- Change the settings of a single field via setting field properties.
 
-- If no attributes is set, the default attributes will be applied.
+If no properties is set, the default properties will be applied:
 
-  The default setting is:
+```rust
+#[property(
+    get(crate, prefix = "", suffix = "", type="auto"),
+    set(crate, prefix = "set_", type = "ref"),
+    mut(crate, prefix = "mut_"),
+    clr(crate, prefix = "clear_", scope = "option")
+    ord(asc)
+)]
+```
 
-  ```rust
-  #[property(
-      get(crate, prefix = "", suffix = "", type="auto"),
-      set(crate, prefix = "set_", type = "ref"),
-      mut(crate, prefix = "mut_"),
-      clr(crate, prefix = "clear_", scope = "option")
-      ord(asc)
-  )]
-  ```
+There are six kinds of configurable properties: `skip`, `get`, `set`, `mut`, `clr` and `ord`.
 
-- If the `skip` attribute is set, no methods will be generated.
+- If the `skip` property is set, no methods will be generated.
 
 - The visibility of a method can be set via `#[property(get(visibility-type))]`
 
@@ -77,9 +77,9 @@ Generate several common methods for structs automatically.
 
   - `replace`: input is a mutable reference and return the old value.
 
-- There is an extra attribute for `set` method:
+- There is an extra property for `set` method:
 
-  - `full_option`: if the value is `Option<T>`, then the default argument is `T` without this attribute.
+  - `full_option`: if the value is `Option<T>`, then the default argument is `T` without this property.
 
 - The `clr` method will set a field to its default value. It has a `scope` property:
 
@@ -89,13 +89,13 @@ Generate several common methods for structs automatically.
 
   - `all`: will generate `clr` method for all types.
 
-- If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
+- If there are more than one filed have the `ord` property, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
-  - A serial number is required for the `ord` field attribute, it's an unsigned number with a `_` prefix.
+  - A serial number is required for the `ord` field property, it's an unsigned number with a `_` prefix.
 
     The serial numbers could be noncontinuous, but any two number of these could not be equal.
 
-    No serial number is allowed if the `ord` attribute is a container attribute.
+    No serial number is allowed if the `ord` property is a container property.
 
   - There are two kind of sort types: `asc` and `desc`.
 
