@@ -20,6 +20,7 @@ const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["auto", "ref",
 const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) =
     ("type", Some(&["ref", "own", "none", "replace"]));
 const NAME_OPTION: (&str, Option<&[&str]>) = ("name", None);
+const STRIP_OPTION: &[&str] = &["strip_option"];
 const PREFIX_OPTION: (&str, Option<&[&str]>) = ("prefix", None);
 const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
 const VISIBILITY_OPTIONS: &[&str] = &["disable", "public", "crate", "private"];
@@ -100,6 +101,7 @@ pub(crate) struct SetFieldConf {
     pub(crate) vis: VisibilityConf,
     pub(crate) name: MethodNameConf,
     pub(crate) typ: SetTypeConf,
+    pub(crate) strip_option: bool,
 }
 
 #[derive(Clone)]
@@ -444,6 +446,7 @@ impl ::std::default::Default for FieldConf {
                     suffix: "".to_owned(),
                 },
                 typ: SetTypeConf::Ref,
+                strip_option: false,
             },
             mut_: MutFieldConf {
                 vis: VisibilityConf::Crate,
@@ -554,7 +557,7 @@ impl FieldConf {
                         }
                     }
                     "set" => {
-                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;
+                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS, STRIP_OPTION])?;
                         let namevalues = check_namevalue_params(
                             &namevalue_params,
                             &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, SET_TYPE_OPTIONS],
@@ -574,6 +577,7 @@ impl FieldConf {
                         {
                             self.set.typ = choice;
                         }
+                        self.set.strip_option = paths[1].is_some();
                     }
                     "mut" => {
                         let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;

@@ -247,6 +247,38 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                     }
                 ),
             },
+            FieldType::Option_(inner_type) if field_conf.set.strip_option => match field_conf.set.typ {
+                SetTypeConf::Ref => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                        &mut self, val: T
+                    ) -> &mut Self {
+                        self.#field_name = Some(val.into());
+                        self
+                    }
+                ),
+                SetTypeConf::Own => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                        mut self, val: T
+                    ) -> Self {
+                        self.#field_name = Some(val.into());
+                        self
+                    }
+                ),
+                SetTypeConf::None_ => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                        &mut self, val: T
+                    ) {
+                        self.#field_name = Some(val.into());
+                    }
+                ),
+                SetTypeConf::Replace => quote!(
+                    #visibility fn #method_name<T: Into<#inner_type>>(
+                        &mut self, val: T
+                    ) -> #field_type {
+                        self.#field_name.replace(val.into())
+                    }
+                ),
+            },
             _ => match field_conf.set.typ {
                 SetTypeConf::Ref => quote!(
                     #visibility fn #method_name<T: Into<#field_type>>(
