@@ -1,10 +1,15 @@
-// Copyright (C) 2019-2020 Boyu Yang
+// Copyright (C) 2019-2021 Boyu Yang
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Once,
+};
 
 use quote::quote;
 use syn::{parse::Result as ParseResult, spanned::Spanned, Error as SynError};
@@ -20,7 +25,22 @@ const SUFFIX_OPTION: (&str, Option<&[&str]>) = ("suffix", None);
 const VISIBILITY_OPTIONS: &[&str] = &["disable", "public", "crate", "private"];
 const SORT_TYPE_OPTIONS: &[&str] = &["asc", "desc"];
 
-pub(crate) struct PropertyDef {
+static INIT_DEFAULT: Once = Once::new();
+static mut CRATE_CONF: Option<FieldConf> = None;
+static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PropertyType {
+    Crate,
+    Container,
+    Field,
+}
+
+pub(crate) struct CrateConfDef {
+    pub(crate) conf: FieldConf,
+}
+
+pub(crate) struct ContainerDef {
     pub(crate) name: syn::Ident,
     pub(crate) generics: syn::Generics,
     pub(crate) fields: Vec<FieldDef>,
@@ -103,7 +123,49 @@ pub(crate) struct FieldConf {
     pub(crate) skip: bool,
 }
 
-impl syn::parse::Parse for PropertyDef {
+impl syn::parse::Parse for CrateConfDef {
+    fn parse(input: syn::parse::ParseStream) -> ParseResult<Self> {
+        let attr_args =
+            syn::punctuated::Punctuated::<syn::NestedMeta, syn::Token![,]>::parse_terminated(
+                input,
+            )?;
+        let mut conf = FieldConf::default();
+        for nested_meta in attr_args.iter() {
+            parse_nested_meta(&mut conf, nested_meta, PropertyType::Crate)?;
+        }
+        Ok(Self { conf })
+    }
+}
+
+impl CrateConfDef {
+    pub(crate) fn set_default_conf(self) {
+        let Self { conf } = self;
+        let call_count = CALL_COUNT.load(Ordering::SeqCst);
+        unsafe {
+            if CRATE_CONF.is_some() {
+                panic!(
+                    "The default property for the whole crate should be \
+                     set only once for each crate."
+                );
+            } else if call_count > 0 {
+                panic!(
+                    "Some properties of containers or fields was set \
+                     before the default property for the whole crate has been taken effect."
+                );
+            }
+            INIT_DEFAULT.call_once(|| {
+                CRATE_CONF = Some(conf);
+            });
+        }
+    }
+
+    fn get_default_conf() -> FieldConf {
+        let _ = CALL_COUNT.fetch_add(1, Ordering::SeqCst);
+        unsafe { CRATE_CONF.as_ref().map(ToOwned::to_owned) }.unwrap_or_else(Default::default)
+    }
+}
+
+impl syn::parse::Parse for ContainerDef {
     fn parse(input: syn::parse::ParseStream) -> ParseResult<Self> {
         let derive_input: syn::DeriveInput = input.parse()?;
         let attrs_span = derive_input.span();
@@ -118,7 +180,11 @@ impl syn::parse::Parse for PropertyDef {
         match data {
             syn::Data::Struct(data) => match data.fields {
                 syn::Fields::Named(named_fields) => {
-                    let conf = PropertyDef::parse_attrs(attrs_span, &attrs[..])?;
+                    let conf = ContainerDef::parse_attrs(
+                        attrs_span,
+                        CrateConfDef::get_default_conf(),
+                        &attrs[..],
+                    )?;
                     Ok(Self {
                         name: ident,
                         generics,
@@ -132,9 +198,13 @@ impl syn::parse::Parse for PropertyDef {
     }
 }
 
-impl PropertyDef {
-    fn parse_attrs(span: proc_macro2::Span, attrs: &[syn::Attribute]) -> ParseResult<FieldConf> {
-        parse_attrs(span, Default::default(), attrs, false)
+impl ContainerDef {
+    fn parse_attrs(
+        span: proc_macro2::Span,
+        conf: FieldConf,
+        attrs: &[syn::Attribute],
+    ) -> ParseResult<FieldConf> {
+        parse_attrs(span, conf, attrs, PropertyType::Container)
     }
 }
 
@@ -166,7 +236,7 @@ impl FieldDef {
         conf: FieldConf,
         attrs: &[syn::Attribute],
     ) -> ParseResult<FieldConf> {
-        parse_attrs(span, conf, attrs, true)
+        parse_attrs(span, conf, attrs, PropertyType::Field)
     }
 }
 
@@ -301,7 +371,7 @@ impl OrdFieldConf {
         path_params: &::std::collections::HashSet<&syn::Path>,
         options: &[&'a str],
         span: proc_macro2::Span,
-        is_field: bool,
+        prop_type: PropertyType,
     ) -> ParseResult<(Option<&'a str>, Option<usize>)> {
         let mut sort_type = None;
         let mut number_opt = None;
@@ -324,10 +394,10 @@ impl OrdFieldConf {
                     }
                 }
             } else if &s.as_bytes()[..1] == b"_" {
-                if !is_field {
+                if prop_type != PropertyType::Field {
                     return Err(SynError::new(
                         p.span(),
-                        "the serial number could not be set as a container attribute",
+                        "the serial number could not be set as a crate or container attribute",
                     ));
                 } else if let Ok(n) = s.as_str()[1..].parse::<usize>() {
                     if number_opt.is_some() {
@@ -347,7 +417,7 @@ impl OrdFieldConf {
                 return Err(SynError::new(p.span(), "this attribute was unknown"));
             }
         }
-        if is_field && number_opt.is_none() {
+        if prop_type == PropertyType::Field && number_opt.is_none() {
             Err(SynError::new(span, "no serial number was set"))
         } else {
             Ok((sort_type, number_opt))
@@ -391,18 +461,11 @@ impl ::std::default::Default for FieldConf {
 }
 
 impl FieldConf {
-    fn apply_attrs(&mut self, meta: &syn::Meta, is_field: bool) -> ParseResult<()> {
+    fn apply_attrs(&mut self, meta: &syn::Meta, prop_type: PropertyType) -> ParseResult<()> {
         match meta {
             syn::Meta::Path(path) => {
                 if path.is_ident(SKIP) {
-                    if is_field {
-                        self.skip = true;
-                    } else {
-                        return Err(SynError::new(
-                            path.span(),
-                            "don't derive it, rather than use skip as a container attribute",
-                        ));
-                    }
+                    self.skip = true;
                 } else {
                     return Err(SynError::new(path.span(), "this attribute was unknown"));
                 }
@@ -533,7 +596,7 @@ impl FieldConf {
                             &path_params,
                             SORT_TYPE_OPTIONS,
                             list.path.span(),
-                            is_field,
+                            prop_type,
                         )?;
                         if let Some(choice) =
                             SortTypeConf::parse_from_input(sort_type_opt, list.path.span())?
@@ -634,7 +697,7 @@ fn parse_attrs(
     span: proc_macro2::Span,
     mut conf: FieldConf,
     attrs: &[syn::Attribute],
-    is_field: bool,
+    prop_type: PropertyType,
 ) -> ParseResult<FieldConf> {
     for attr in attrs.iter() {
         if let syn::AttrStyle::Outer = attr.style {
@@ -659,17 +722,7 @@ fn parse_attrs(
                             ));
                         }
                         for nested_meta in list.nested.iter() {
-                            match nested_meta {
-                                syn::NestedMeta::Meta(meta) => {
-                                    conf.apply_attrs(meta, is_field)?;
-                                }
-                                syn::NestedMeta::Lit(lit) => {
-                                    return Err(SynError::new(
-                                        lit.span(),
-                                        "the attribute in nested meta should not be a literal",
-                                    ));
-                                }
-                            }
+                            parse_nested_meta(&mut conf, nested_meta, prop_type)?;
                         }
                     }
                 }
@@ -685,4 +738,21 @@ fn parse_attrs(
         }
     }
     Ok(conf)
+}
+
+fn parse_nested_meta(
+    conf: &mut FieldConf,
+    nested_meta: &syn::NestedMeta,
+    prop_type: PropertyType,
+) -> ParseResult<()> {
+    match nested_meta {
+        syn::NestedMeta::Meta(meta) => {
+            conf.apply_attrs(meta, prop_type)?;
+            Ok(())
+        }
+        syn::NestedMeta::Lit(lit) => Err(SynError::new(
+            lit.span(),
+            "the attribute in nested meta should not be a literal",
+        )),
+    }
 }

@@ -20,13 +20,33 @@ Generate several common methods for structs automatically.
 
   There are five kinds of configurable attributes: `skip`, `get`, `set`, `mut` and `ord`.
 
-- Set container attributes can change the default settings for all fields.
+- Set crate attributes can change the default settings for all fields in the whole crate.
+
+  Limited by the procedural macros, here we have to use a tricky way to set the crate attributes:
+
+  ```rust
+  #[property_default(get(..), set(..), ..)]
+  struct PropertyCrateConf; // This struct is only used for introducing the attribute macro, and it will be removed in the macro.
+  ```
+
+- Set container attributes can change the default settings for all fields in the container.
 
 - Change the settings of a single field via setting field attributes.
 
-- If the `skip` attribute is set, no methods will be generated.
+- If no attributes is set, the default attributes will be applied.
 
-  Don't set `skip` attribute as a container attribute.
+  The default setting is:
+
+  ```rust
+  #[property(
+      get(crate, prefix = "", suffix = "", type="not-set"),
+      set(crate, prefix = "set_", type = "ref"),
+      mut(crate, prefix = "mut_"),
+      ord(asc)
+  )]
+  ```
+
+- If the `skip` attribute is set, no methods will be generated.
 
 - The visibility of a method can be set via `#[property(get(visibility-type))]`
 
@@ -86,7 +106,10 @@ extern crate std as alloc;
 
 use alloc::{string::String, vec::Vec};
 
-use property::Property;
+use property::{property_default, Property};
+
+#[property_default(get(public), ord(desc))]
+struct PropertyCrateConf;
 
 #[derive(Copy, Clone)]
 pub enum Species {
@@ -97,7 +120,7 @@ pub enum Species {
 }
 
 #[derive(Property)]
-#[property(get(public), set(private), mut(disable), ord(desc))]
+#[property(set(private), mut(disable))]
 pub struct Pet {
     #[property(get(name = "identification"), set(disable), ord(asc, _2))]
     id: [u8; 32],

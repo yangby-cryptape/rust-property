@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2020 Boyu Yang
+// Copyright (C) 2019-2021 Boyu Yang
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -9,19 +9,72 @@
 extern crate proc_macro;
 
 use quote::quote;
+use syn::{spanned::Spanned, Error as SynError};
 
 mod generate;
 mod parse;
 
 use crate::{
     generate::{FieldType, GetType},
-    parse::{FieldDef, GetTypeConf, PropertyDef, SetTypeConf},
+    parse::{ContainerDef, CrateConfDef, FieldDef, GetTypeConf, SetTypeConf},
 };
+
+/// Set a global default setting for all `#[derive(Property)]` in the same crate.
+///
+/// ## Notice
+///
+/// - This macro should be called before all `#[derive(Property)]`.
+///
+///   I highly recommend that put it in the head of `main.rs` or `lib.rs`.
+///
+/// - This macro should be called at most once for each crate.
+///
+/// ## Examples
+///
+/// ```
+/// use property::property_default;
+///
+/// #[property_default(get(disable))]
+/// struct PropertyCrateConf;  // This struct will be removed.
+/// ```
+#[proc_macro_attribute]
+pub fn property_default(
+    input: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    {
+        let item = syn::parse_macro_input!(item as syn::Item);
+        let raise_error = if let syn::Item::Struct(ref st) = item {
+            !st.attrs.is_empty()
+                || st.semi_token.is_none()
+                || st.fields != syn::Fields::Unit
+                || st.generics.lt_token.is_some()
+                || st.generics.gt_token.is_some()
+                || !st.generics.params.is_empty()
+                || st.generics.where_clause.is_some()
+        } else {
+            true
+        };
+        if raise_error {
+            return SynError::new(
+                item.span(),
+                "Please using a simple unit struct (which will be removed in the macro) \
+                 to invoke the macro for setting the default attributes",
+            )
+            .into_compile_error()
+            .into();
+        }
+    }
+    let property = syn::parse_macro_input!(input as CrateConfDef);
+    property.set_default_conf();
+    let expanded = { quote!() };
+    expanded.into()
+}
 
 /// Generate several common methods for structs automatically.
 #[proc_macro_derive(Property, attributes(property))]
 pub fn derive_property(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let property = syn::parse_macro_input!(input as PropertyDef);
+    let property = syn::parse_macro_input!(input as ContainerDef);
     let expanded = {
         let name = &property.name;
         let (impl_generics, type_generics, where_clause_opt) = property.generics.split_for_impl();
@@ -45,7 +98,7 @@ pub fn derive_property(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     expanded.into()
 }
 
-fn implement_traits(property: &PropertyDef) -> Option<proc_macro2::TokenStream> {
+fn implement_traits(property: &ContainerDef) -> Option<proc_macro2::TokenStream> {
     let name = &property.name;
     let mut ordered: Vec<_> = property
         .fields
