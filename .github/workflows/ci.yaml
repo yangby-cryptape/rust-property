@@ -83,6 +83,11 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
           components: rustfmt, clippy
+      - name: Setup (nightly)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
       - name: CacheKey (cargo-expand)
         id: cache-key
         run: echo "::set-output name=yyyymm::$(/bin/date -u "+%Y%m")"
@@ -94,12 +99,7 @@ jobs:
           key: ${{ runner.os }}-${{ steps.cache-key.outputs.yyyymm }}
       - name: Setup (cargo-expand)
         if: steps.cache-cargo-expand.outputs.cache-hit != 'true'
-        run: cargo expand --version || cargo install cargo-expand --locked
-      - name: Setup (nightly)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
+        run: cargo expand --version || cargo +nightly install cargo-expand --locked
       - name: Build
         run: cargo build --verbose --all
       - name: Test
