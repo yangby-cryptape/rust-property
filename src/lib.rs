@@ -15,8 +15,8 @@ mod generate;
 mod parse;
 
 use crate::{
-    generate::{FieldType, GetType},
-    parse::{ContainerDef, CrateConfDef, FieldDef, GetTypeConf, SetTypeConf},
+    generate::{ClrMethod, FieldType, GetType},
+    parse::{ClrScopeConf, ContainerDef, CrateConfDef, FieldDef, GetTypeConf, SetTypeConf},
 };
 
 /// Set a global default setting for all `#[derive(Property)]` in the same crate.
@@ -210,7 +210,7 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
     }
     if let Some(ts) = field_conf.set.vis.to_ts().map(|visibility| {
         let method_name = field_conf.set.name.complete(field_name);
-        match prop_field_type {
+        match &prop_field_type {
             FieldType::Vector(inner_type) => match field_conf.set.typ {
                 SetTypeConf::Ref => quote!(
                     #visibility fn #method_name<T: Into<#inner_type>>(
@@ -322,6 +322,57 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                 &mut self.#field_name
             }
         )
+    }) {
+        property.push(ts);
+    }
+    if let Some(ts) = field_conf.clr.vis.to_ts().and_then(|visibility| {
+        let method_name = field_conf.clr.name.complete(field_name);
+        let auto_clr_method = ClrMethod::from_field_type(&prop_field_type);
+        let clr_method = match field_conf.clr.scope {
+            ClrScopeConf::Auto => auto_clr_method,
+            ClrScopeConf::Option_ => {
+                if auto_clr_method == ClrMethod::SetNone {
+                    auto_clr_method
+                } else {
+                    ClrMethod::None_
+                }
+            }
+            ClrScopeConf::All => {
+                if auto_clr_method == ClrMethod::None_ {
+                    ClrMethod::SetDefault
+                } else {
+                    auto_clr_method
+                }
+            }
+        };
+        match clr_method {
+            ClrMethod::SetZero => Some(quote!(
+                #visibility fn #method_name(&mut self) {
+                    self.#field_name = 0;
+                }
+            )),
+            ClrMethod::SetNone => Some(quote!(
+                #visibility fn #method_name(&mut self) {
+                    self.#field_name =None;
+                }
+            )),
+            ClrMethod::SetDefault => Some(quote!(
+                #visibility fn #method_name(&mut self) {
+                    self.#field_name = Default::default();
+                }
+            )),
+            ClrMethod::CallClear => Some(quote!(
+                #visibility fn #method_name(&mut self) {
+                    self.#field_name.clear();
+                }
+            )),
+            ClrMethod::FillWithDefault => Some(quote!(
+                #visibility fn #method_name(&mut self) {
+                    self.#field_name.fill_with(Default::default);
+                }
+            )),
+            ClrMethod::None_ => None,
+        }
     }) {
         property.push(ts);
     }

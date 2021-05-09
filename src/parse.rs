@@ -24,6 +24,7 @@ const GET_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("type", Some(&["auto", "ref",
 const SET_TYPE_OPTIONS: (&str, Option<&[&str]>) =
     ("type", Some(&["ref", "own", "none", "replace"]));
 const SET_OPTION_FULL_OPTION: &[&str] = &["full_option"];
+const CLR_TYPE_OPTIONS: (&str, Option<&[&str]>) = ("scope", Some(&["auto", "option", "all"]));
 const SORT_TYPE_OPTIONS: &[&str] = &["asc", "desc"];
 
 static INIT_DEFAULT: Once = Once::new();
@@ -70,6 +71,13 @@ pub(crate) enum SetTypeConf {
 }
 
 #[derive(Clone, Copy)]
+pub(crate) enum ClrScopeConf {
+    Auto,
+    Option_,
+    All,
+}
+
+#[derive(Clone, Copy)]
 pub(crate) enum VisibilityConf {
     Disable,
     Public,
@@ -111,6 +119,13 @@ pub(crate) struct MutFieldConf {
 }
 
 #[derive(Clone)]
+pub(crate) struct ClrFieldConf {
+    pub(crate) vis: VisibilityConf,
+    pub(crate) name: MethodNameConf,
+    pub(crate) scope: ClrScopeConf,
+}
+
+#[derive(Clone)]
 pub(crate) struct OrdFieldConf {
     pub(crate) number: Option<usize>,
     pub(crate) sort_type: SortTypeConf,
@@ -121,6 +136,7 @@ pub(crate) struct FieldConf {
     pub(crate) get: GetFieldConf,
     pub(crate) set: SetFieldConf,
     pub(crate) mut_: MutFieldConf,
+    pub(crate) clr: ClrFieldConf,
     pub(crate) ord: OrdFieldConf,
     pub(crate) skip: bool,
 }
@@ -270,6 +286,22 @@ impl SetTypeConf {
             Some("own") => Some(SetTypeConf::Own),
             Some("none") => Some(SetTypeConf::None_),
             Some("replace") => Some(SetTypeConf::Replace),
+            _ => return Err(SynError::new(span, "unreachable result")),
+        };
+        Ok(choice)
+    }
+}
+
+impl ClrScopeConf {
+    pub(crate) fn parse_from_input(
+        namevalue_params: &::std::collections::HashMap<&str, String>,
+        span: proc_macro2::Span,
+    ) -> ParseResult<Option<Self>> {
+        let choice = match namevalue_params.get("scope").map(AsRef::as_ref) {
+            None => None,
+            Some("auto") => Some(ClrScopeConf::Auto),
+            Some("option") => Some(ClrScopeConf::Option_),
+            Some("all") => Some(ClrScopeConf::All),
             _ => return Err(SynError::new(span, "unreachable result")),
         };
         Ok(choice)
@@ -455,6 +487,14 @@ impl ::std::default::Default for FieldConf {
                     suffix: "".to_owned(),
                 },
             },
+            clr: ClrFieldConf {
+                vis: VisibilityConf::Crate,
+                name: MethodNameConf::Format {
+                    prefix: "clear_".to_owned(),
+                    suffix: "".to_owned(),
+                },
+                scope: ClrScopeConf::Option_,
+            },
             ord: OrdFieldConf {
                 number: None,
                 sort_type: SortTypeConf::Ascending,
@@ -597,6 +637,28 @@ impl FieldConf {
                             MethodNameConf::parse_from_input(&namevalues, list.path.span())?
                         {
                             self.mut_.name = choice;
+                        }
+                    }
+                    "clr" => {
+                        let paths = check_path_params(&path_params, &[VISIBILITY_OPTIONS])?;
+                        let namevalues = check_namevalue_params(
+                            &namevalue_params,
+                            &[NAME_OPTION, PREFIX_OPTION, SUFFIX_OPTION, CLR_TYPE_OPTIONS],
+                        )?;
+                        if let Some(choice) =
+                            VisibilityConf::parse_from_input(paths[0], list.path.span())?
+                        {
+                            self.mut_.vis = choice;
+                        }
+                        if let Some(choice) =
+                            MethodNameConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.mut_.name = choice;
+                        }
+                        if let Some(choice) =
+                            ClrScopeConf::parse_from_input(&namevalues, list.path.span())?
+                        {
+                            self.clr.scope = choice;
                         }
                     }
                     "ord" => {

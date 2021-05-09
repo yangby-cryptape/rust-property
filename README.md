@@ -18,7 +18,7 @@ Generate several common methods for structs automatically.
 
 - Apply the derive proc-macro `#[derive(Property)]` to structs, and use `#[property(..)]` to configure it.
 
-  There are five kinds of configurable attributes: `skip`, `get`, `set`, `mut` and `ord`.
+  There are six kinds of configurable attributes: `skip`, `get`, `set`, `mut`, `clr` and `ord`.
 
 - Set crate attributes can change the default settings for all fields in the whole crate.
 
@@ -42,6 +42,7 @@ Generate several common methods for structs automatically.
       get(crate, prefix = "", suffix = "", type="auto"),
       set(crate, prefix = "set_", type = "ref"),
       mut(crate, prefix = "mut_"),
+      clr(crate, prefix = "clear_", scope = "option")
       ord(asc)
   )]
   ```
@@ -80,6 +81,14 @@ Generate several common methods for structs automatically.
 
   - `full_option`: if the value is `Option<T>`, then the default argument is `T` without this attribute.
 
+- The `clr` method will set a field to its default value. It has a `scope` property:
+
+  - `auto`: will generate `clr` method for some preset types, such as `Vec`, `Option`, and so on.
+
+  - `option`: (default) will generate `clr` method for `Option` only.
+
+  - `all`: will generate `clr` method for all types.
+
 - If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
   - A serial number is required for the `ord` field attribute, it's an unsigned number with a `_` prefix.
@@ -112,7 +121,7 @@ use alloc::{string::String, vec::Vec};
 
 use property::{property_default, Property};
 
-#[property_default(get(public), ord(desc))]
+#[property_default(get(public), ord(desc), clr(scope = "option"))]
 struct PropertyCrateConf;
 
 #[derive(Copy, Clone)]
@@ -137,6 +146,7 @@ pub struct Pet {
     died: bool,
     #[property(get(type = "clone"), set(type = "none"))]
     owner: String,
+    #[property(clr(scope = "auto"))]
     family_members: Vec<String>,
     #[property(get(type = "ref"), mut(crate))]
     info: String,
@@ -216,6 +226,10 @@ impl Pet {
         self
     }
     #[inline]
+    pub(crate) fn clear_family_members(&mut self) {
+        self.family_members.clear();
+    }
+    #[inline]
     pub fn info(&self) -> &String {
         &self.info
     }
@@ -246,12 +260,20 @@ impl Pet {
         &mut self.note
     }
     #[inline]
+    pub(crate) fn clear_note(&mut self) {
+        self.note = None;
+    }
+    #[inline]
     pub fn price(&self) -> Option<u32> {
         self.price
     }
     #[inline]
     fn set_price<T: Into<Option<u32>>>(&mut self, val: T) -> Option<u32> {
         ::core::mem::replace(&mut self.price, val.into())
+    }
+    #[inline]
+    pub(crate) fn clear_price(&mut self) {
+        self.price = None;
     }
 }
 impl PartialEq for Pet {
