@@ -76,7 +76,9 @@ Generate several common methods for structs automatically.
 
   - `replace`: input is a mutable reference and return the old value.
 
-- `#[property(set(strip_option))]` accepts `T` as property value instead of `Option<T>`
+- There is an extra attribute for `set` method:
+
+  - `full_option`: if the value is `Option<T>`, then the default argument is `T` without this attribute.
 
 - If there are more than one filed have the `ord` attribute, the [`PartialEq`] and [`PartialOrd`] will be implemented automatically.
 
@@ -140,9 +142,9 @@ pub struct Pet {
     info: String,
     #[property(get(disable), set(type = "replace"))]
     pub tag: Vec<String>,
-    #[property(mut(public, suffix = "_mut"), set(strip_option))]
+    #[property(mut(public, suffix = "_mut"))]
     note: Option<String>,
-    #[property(set(type = "replace"))]
+    #[property(set(type = "replace", full_option))]
     price: Option<u32>,
     #[property(skip)]
     pub reserved: String,

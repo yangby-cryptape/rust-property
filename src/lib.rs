@@ -247,7 +247,7 @@ fn derive_property_for_field(field: &FieldDef) -> Vec<proc_macro2::TokenStream> 
                     }
                 ),
             },
-            FieldType::Option_(inner_type) if field_conf.set.strip_option => match field_conf.set.typ {
+            FieldType::Option_(ref inner_type) if !field_conf.set.full_option => match field_conf.set.typ {
                 SetTypeConf::Ref => quote!(
                     #visibility fn #method_name<T: Into<#inner_type>>(
                         &mut self, val: T
